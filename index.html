@@ -457,16 +457,17 @@
     try {
       const base64Audio = await blobToBase64(audioBlob);
 
+      const form = new FormData();
+      form.append('action', 'generateDPR');
+      form.append('project', projectName);
+      form.append('audioBase64', base64Audio);
+      form.append('audioMime', audioBlob.type);
+      form.append('date', now.toISOString());
+
       const response = await fetch(APPS_SCRIPT_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'generateDPR',
-          project: projectName,
-          audioBase64: base64Audio,
-          audioMime: audioBlob.type,
-          date: now.toISOString()
-        })
+        body: form,
+        redirect: 'follow'
       });
 
       const result = await response.json();
