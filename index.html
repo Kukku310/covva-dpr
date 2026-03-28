@@ -19,6 +19,7 @@
     --text-dim: #7a7268;
     --text-mid: #a89f94;
     --green: #2ecc71;
+    --red: #c0392b;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -78,6 +79,7 @@
     margin: 0 auto;
   }
 
+  /* ── RECORD SECTION ── */
   .record-section {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -166,6 +168,93 @@
   }
   .instruction strong { color: var(--text-mid); font-weight: 500; }
 
+  /* ── CLIP LIST ── */
+  .clips-section {
+    margin-bottom: 20px;
+    display: none;
+  }
+  .clips-section.visible { display: block; }
+
+  .clips-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+  }
+
+  .clip-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .clip-number {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    color: var(--amber);
+    min-width: 28px;
+    line-height: 1;
+  }
+
+  .clip-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .clip-duration {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--text-mid);
+    margin-bottom: 4px;
+  }
+
+  .clip-audio {
+    width: 100%;
+    height: 28px;
+    accent-color: var(--amber);
+  }
+
+  .clip-delete {
+    background: none;
+    border: 1px solid rgba(192,57,43,0.3);
+    color: var(--red);
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.2s;
+  }
+  .clip-delete:active { background: rgba(192,57,43,0.1); }
+
+  /* ── BUTTONS ── */
+  .add-clip-btn {
+    width: 100%;
+    padding: 13px;
+    background: transparent;
+    color: var(--amber);
+    border: 1px dashed var(--amber-dim);
+    border-radius: 4px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 20px;
+    display: none;
+    text-transform: uppercase;
+  }
+  .add-clip-btn.visible { display: block; }
+  .add-clip-btn:active { border-color: var(--amber); background: var(--amber-glow); }
+
   .process-btn {
     width: 100%;
     padding: 16px;
@@ -184,12 +273,12 @@
   .process-btn:active { transform: scale(0.98); background: #c07820; }
   .process-btn.visible { display: block; }
 
-  .reset-btn {
+  .redo-btn {
     width: 100%;
     padding: 12px;
     background: transparent;
-    color: var(--text-dim);
-    border: 1px solid var(--border);
+    color: rgba(192,57,43,0.7);
+    border: 1px solid rgba(192,57,43,0.25);
     border-radius: 4px;
     font-family: 'DM Mono', monospace;
     font-size: 12px;
@@ -198,9 +287,12 @@
     transition: all 0.2s;
     display: none;
     text-transform: uppercase;
+    margin-bottom: 20px;
   }
-  .reset-btn.visible { display: block; }
+  .redo-btn.visible { display: block; }
+  .redo-btn:active { background: rgba(192,57,43,0.08); }
 
+  /* ── STATUS ── */
   .status-bar {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -233,6 +325,7 @@
     letter-spacing: 0.5px;
   }
 
+  /* ── DPR OUTPUT ── */
   .dpr-section { display: none; margin-bottom: 20px; }
   .dpr-section.visible { display: block; }
 
@@ -242,6 +335,14 @@
     color: var(--amber);
     text-transform: uppercase;
     letter-spacing: 2px;
+    margin-bottom: 6px;
+  }
+
+  .dpr-edit-hint {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.5px;
     margin-bottom: 12px;
   }
 
@@ -257,6 +358,15 @@
     color: var(--text);
     white-space: pre-wrap;
     margin-bottom: 12px;
+    outline: none;
+    min-height: 60px;
+    cursor: text;
+  }
+
+  .dpr-box:focus {
+    border-color: var(--amber-dim);
+    border-left-color: var(--amber);
+    background: #191919;
   }
 
   .copy-btn {
@@ -271,9 +381,27 @@
     letter-spacing: 2px;
     cursor: pointer;
     transition: all 0.2s;
+    margin-bottom: 10px;
   }
   .copy-btn.copied { color: var(--green); border-color: var(--green); background: rgba(46,204,113,0.08); }
 
+  .new-report-btn {
+    width: 100%;
+    padding: 12px;
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+  .new-report-btn:active { color: var(--text-mid); border-color: var(--text-dim); }
+
+  /* ── ERROR ── */
   .error-box {
     background: rgba(192,57,43,0.1);
     border: 1px solid rgba(192,57,43,0.3);
@@ -314,7 +442,7 @@
 <div class="main">
 
   <div class="record-section">
-    <div class="record-label">Site Progress Report — Voice Input</div>
+    <div class="record-label" id="recordLabel">Site Progress Report — Voice Input</div>
 
     <div class="mic-wrap">
       <button class="mic-btn" id="micBtn" onclick="toggleRecording()">
@@ -339,10 +467,19 @@
     </div>
   </div>
 
+  <!-- Clip list -->
+  <div class="clips-section" id="clipsSection">
+    <div class="clips-label" id="clipsLabel">Recorded Clips</div>
+    <div id="clipList"></div>
+  </div>
+
+  <!-- Add another clip -->
+  <button class="add-clip-btn" id="addClipBtn" onclick="addAnotherClip()">+ Add Another Clip</button>
+
   <div class="error-box" id="errorBox"></div>
 
   <button class="process-btn" id="processBtn" onclick="generateDPR()">Generate Report</button>
-  <button class="reset-btn" id="resetBtn" onclick="resetAll()">Record Again</button>
+  <button class="redo-btn" id="redoBtn" onclick="redoAll()">✕ Start Over — Clear All Clips</button>
 
   <div class="status-bar" id="statusBar">
     <div class="status-dot"></div>
@@ -351,8 +488,10 @@
 
   <div class="dpr-section" id="dprSection">
     <div class="dpr-label">Generated Report — Ready to Post</div>
-    <div class="dpr-box" id="dprOutput"></div>
-    <button class="copy-btn" id="copyBtn" onclick="copyDPR()">Copy & Post to Group</button>
+    <div class="dpr-edit-hint">Tap report to edit before copying</div>
+    <div class="dpr-box" id="dprOutput" contenteditable="true" spellcheck="false"></div>
+    <button class="copy-btn" id="copyBtn" onclick="copyDPR()">Copy &amp; Post to Group</button>
+    <button class="new-report-btn" onclick="redoAll()">Start New Report</button>
   </div>
 
 </div>
@@ -378,11 +517,14 @@
   // ─── STATE ────────────────────────────────────────────────
   let mediaRecorder = null;
   let audioChunks = [];
-  let audioBlob = null;
   let isRecording = false;
   let timerInterval = null;
   let seconds = 0;
 
+  // clips = [{ blob, mimeType, duration, url }]
+  let clips = [];
+
+  // ─── TIMER ────────────────────────────────────────────────
   function startTimer() {
     seconds = 0;
     const timerEl = document.getElementById('timer');
@@ -397,6 +539,13 @@
 
   function stopTimer() { clearInterval(timerInterval); }
 
+  function formatDuration(s) {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${sec.toString().padStart(2, '0')}`;
+  }
+
+  // ─── RECORDING ────────────────────────────────────────────
   async function toggleRecording() {
     if (isRecording) { stopRecording(); } else { await startRecording(); }
   }
@@ -415,9 +564,9 @@
       mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
       mediaRecorder.onstop = () => {
-        audioBlob = new Blob(audioChunks, { type: mimeType });
+        const blob = new Blob(audioChunks, { type: mimeType });
         stream.getTracks().forEach(t => t.stop());
-        onRecordingComplete();
+        onRecordingComplete(blob, mimeType, seconds);
       };
 
       mediaRecorder.start(250);
@@ -425,6 +574,12 @@
       document.getElementById('micBtn').classList.add('recording');
       document.getElementById('micStatus').textContent = 'Recording... tap to stop';
       document.getElementById('micStatus').classList.add('active');
+
+      // hide Add Clip button while recording
+      document.getElementById('addClipBtn').classList.remove('visible');
+      document.getElementById('processBtn').classList.remove('visible');
+      document.getElementById('redoBtn').classList.remove('visible');
+
       startTimer();
 
     } catch (err) {
@@ -438,32 +593,106 @@
       isRecording = false;
       stopTimer();
       document.getElementById('micBtn').classList.remove('recording');
-      document.getElementById('micStatus').textContent = 'Processing recording...';
+      document.getElementById('micStatus').textContent = 'Processing...';
       document.getElementById('micStatus').classList.remove('active');
     }
   }
 
-  function onRecordingComplete() {
-    document.getElementById('micStatus').textContent = 'Recording complete ✓';
+  function onRecordingComplete(blob, mimeType, duration) {
+    const url = URL.createObjectURL(blob);
+    clips.push({ blob, mimeType, duration, url });
+
+    document.getElementById('micStatus').textContent = `Clip ${clips.length} saved ✓`;
+    document.getElementById('timer').classList.remove('visible');
+
+    renderClips();
+
+    // Update record label
+    document.getElementById('recordLabel').textContent = 'Add Another Clip (Optional)';
+    document.getElementById('micStatus').textContent = 'Tap mic to record another clip';
+
+    document.getElementById('addClipBtn').classList.remove('visible'); // not needed — mic is visible
     document.getElementById('processBtn').classList.add('visible');
-    document.getElementById('resetBtn').classList.add('visible');
+    document.getElementById('redoBtn').classList.add('visible');
   }
 
+  // ─── CLIP RENDERING ───────────────────────────────────────
+  function renderClips() {
+    const section = document.getElementById('clipsSection');
+    const list = document.getElementById('clipList');
+
+    if (clips.length === 0) {
+      section.classList.remove('visible');
+      list.innerHTML = '';
+      return;
+    }
+
+    section.classList.add('visible');
+    document.getElementById('clipsLabel').textContent =
+      `Recorded Clips — ${clips.length} clip${clips.length > 1 ? 's' : ''}`;
+
+    list.innerHTML = '';
+    clips.forEach((clip, i) => {
+      const card = document.createElement('div');
+      card.className = 'clip-card';
+      card.innerHTML = `
+        <div class="clip-number">${i + 1}</div>
+        <div class="clip-info">
+          <div class="clip-duration">${formatDuration(clip.duration)}</div>
+          <audio class="clip-audio" controls preload="none" src="${clip.url}"></audio>
+        </div>
+        <button class="clip-delete" onclick="deleteClip(${i})">Delete</button>
+      `;
+      list.appendChild(card);
+    });
+  }
+
+  function deleteClip(index) {
+    URL.revokeObjectURL(clips[index].url);
+    clips.splice(index, 1);
+    renderClips();
+
+    if (clips.length === 0) {
+      // Back to fresh state
+      document.getElementById('recordLabel').textContent = 'Site Progress Report — Voice Input';
+      document.getElementById('micStatus').textContent = 'Tap to start recording';
+      document.getElementById('processBtn').classList.remove('visible');
+      document.getElementById('redoBtn').classList.remove('visible');
+    } else {
+      document.getElementById('clipsLabel').textContent =
+        `Recorded Clips — ${clips.length} clip${clips.length > 1 ? 's' : ''}`;
+    }
+  }
+
+  function addAnotherClip() {
+    // Just a helper — mic button already does this; button hidden for now
+    document.getElementById('micStatus').textContent = 'Tap mic to record another clip';
+  }
+
+  // ─── GENERATE DPR ─────────────────────────────────────────
   async function generateDPR() {
-    if (!audioBlob) { showError('No recording found. Please record first.'); return; }
+    if (clips.length === 0) { showError('No recordings found. Please record first.'); return; }
     hideError();
-    setStatus('Sending to Gemini...');
+    setStatus(`Sending ${clips.length} clip${clips.length > 1 ? 's' : ''} to Gemini...`);
     document.getElementById('processBtn').classList.remove('visible');
+    document.getElementById('redoBtn').classList.remove('visible');
     document.getElementById('dprSection').classList.remove('visible');
 
     try {
-      const base64Audio = await blobToBase64(audioBlob);
+      // Encode all clips to base64
+      const audioPayload = [];
+      for (let i = 0; i < clips.length; i++) {
+        setStatus(`Preparing clip ${i + 1} of ${clips.length}...`);
+        const b64 = await blobToBase64(clips[i].blob);
+        audioPayload.push({ base64: b64, mime: clips[i].mimeType });
+      }
+
+      setStatus('Generating report...');
 
       const form = new FormData();
       form.append('action', 'generateDPR');
       form.append('project', projectName);
-      form.append('audioBase64', base64Audio);
-      form.append('audioMime', audioBlob.type);
+      form.append('audioPayload', JSON.stringify(audioPayload));
       form.append('date', now.toISOString());
 
       const response = await fetch(APPS_SCRIPT_URL, {
@@ -483,6 +712,7 @@
     } catch (err) {
       hideStatus();
       document.getElementById('processBtn').classList.add('visible');
+      document.getElementById('redoBtn').classList.add('visible');
       showError('Error: ' + err.message);
     }
   }
@@ -496,6 +726,7 @@
     });
   }
 
+  // ─── STATUS ───────────────────────────────────────────────
   function setStatus(text) {
     document.getElementById('statusText').textContent = text;
     document.getElementById('statusBar').classList.add('visible');
@@ -503,22 +734,16 @@
 
   function hideStatus() { document.getElementById('statusBar').classList.remove('visible'); }
 
+  // ─── DPR OUTPUT ───────────────────────────────────────────
   function showDPR(text) {
-    document.getElementById('dprOutput').textContent = text;
+    const box = document.getElementById('dprOutput');
+    box.textContent = text;
     document.getElementById('dprSection').classList.add('visible');
     document.getElementById('dprSection').scrollIntoView({ behavior: 'smooth' });
   }
 
-  function showError(msg) {
-    const el = document.getElementById('errorBox');
-    el.textContent = msg;
-    el.classList.add('visible');
-  }
-
-  function hideError() { document.getElementById('errorBox').classList.remove('visible'); }
-
   function copyDPR() {
-    const text = document.getElementById('dprOutput').textContent;
+    const text = document.getElementById('dprOutput').innerText;
     navigator.clipboard.writeText(text).then(() => {
       const btn = document.getElementById('copyBtn');
       btn.textContent = 'Copied ✓';
@@ -530,17 +755,40 @@
     });
   }
 
-  function resetAll() {
-    audioBlob = null; audioChunks = []; isRecording = false; seconds = 0;
+  // ─── ERROR ────────────────────────────────────────────────
+  function showError(msg) {
+    const el = document.getElementById('errorBox');
+    el.textContent = msg;
+    el.classList.add('visible');
+  }
+
+  function hideError() { document.getElementById('errorBox').classList.remove('visible'); }
+
+  // ─── REDO — FULL RESET ────────────────────────────────────
+  function redoAll() {
+    // Revoke all object URLs
+    clips.forEach(c => URL.revokeObjectURL(c.url));
+    clips = [];
+    audioChunks = [];
+    isRecording = false;
+    seconds = 0;
+
     document.getElementById('timer').textContent = '0:00';
     document.getElementById('timer').classList.remove('visible');
     document.getElementById('micStatus').textContent = 'Tap to start recording';
     document.getElementById('micStatus').classList.remove('active');
     document.getElementById('micBtn').classList.remove('recording');
+    document.getElementById('recordLabel').textContent = 'Site Progress Report — Voice Input';
     document.getElementById('processBtn').classList.remove('visible');
-    document.getElementById('resetBtn').classList.remove('visible');
+    document.getElementById('redoBtn').classList.remove('visible');
+    document.getElementById('addClipBtn').classList.remove('visible');
     document.getElementById('dprSection').classList.remove('visible');
-    hideStatus(); hideError();
+    document.getElementById('clipsSection').classList.remove('visible');
+    document.getElementById('clipList').innerHTML = '';
+    hideStatus();
+    hideError();
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 </script>
 </body>
