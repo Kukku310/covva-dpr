@@ -974,12 +974,12 @@
     try { localStorage.setItem('covva-theme', isLight ? 'light' : 'dark'); } catch(e) {}
   }
 
-  // Apply saved preference on load (default: dark)
+  // Apply saved preference on load (default: light)
   (function() {
     try {
       const saved = localStorage.getItem('covva-theme');
-      if (saved === 'light') applyTheme(true);
-    } catch(e) {}
+      applyTheme(saved !== 'dark');
+    } catch(e) { applyTheme(true); }
   })();
 </script>
 </body>
