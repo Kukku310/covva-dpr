@@ -32,6 +32,7 @@
     overflow-x: hidden;
   }
 
+  /* ── HEADER ── */
   .header {
     background: var(--surface);
     border-bottom: 1px solid var(--border);
@@ -73,8 +74,60 @@
     letter-spacing: 0.5px;
   }
 
+  /* ── MODE TOGGLE ── */
+  .mode-toggle-wrap {
+    padding: 14px 20px 0;
+    max-width: 520px;
+    margin: 0 auto;
+  }
+
+  .mode-toggle {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  .mode-btn {
+    flex: 1;
+    padding: 9px 4px;
+    background: var(--surface);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+    line-height: 1.3;
+  }
+
+  .mode-btn.active {
+    background: var(--amber-glow);
+    color: var(--amber);
+    border-color: var(--amber-dim);
+  }
+
+  .mode-btn.disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  .mode-note {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.5px;
+    min-height: 16px;
+    padding-bottom: 4px;
+  }
+
+  /* ── MAIN ── */
   .main {
-    padding: 24px 20px;
+    padding: 20px 20px 24px;
     max-width: 520px;
     margin: 0 auto;
   }
@@ -169,10 +222,7 @@
   .instruction strong { color: var(--text-mid); font-weight: 500; }
 
   /* ── CLIP LIST ── */
-  .clips-section {
-    margin-bottom: 20px;
-    display: none;
-  }
+  .clips-section { margin-bottom: 20px; display: none; }
   .clips-section.visible { display: block; }
 
   .clips-label {
@@ -203,10 +253,7 @@
     line-height: 1;
   }
 
-  .clip-info {
-    flex: 1;
-    min-width: 0;
-  }
+  .clip-info { flex: 1; min-width: 0; }
 
   .clip-duration {
     font-family: 'DM Mono', monospace;
@@ -215,11 +262,7 @@
     margin-bottom: 4px;
   }
 
-  .clip-audio {
-    width: 100%;
-    height: 28px;
-    accent-color: var(--amber);
-  }
+  .clip-audio { width: 100%; height: 28px; accent-color: var(--amber); }
 
   .clip-delete {
     background: none;
@@ -235,26 +278,7 @@
   }
   .clip-delete:active { background: rgba(192,57,43,0.1); }
 
-  /* ── BUTTONS ── */
-  .add-clip-btn {
-    width: 100%;
-    padding: 13px;
-    background: transparent;
-    color: var(--amber);
-    border: 1px dashed var(--amber-dim);
-    border-radius: 4px;
-    font-family: 'DM Mono', monospace;
-    font-size: 12px;
-    letter-spacing: 1px;
-    cursor: pointer;
-    transition: all 0.2s;
-    margin-bottom: 20px;
-    display: none;
-    text-transform: uppercase;
-  }
-  .add-clip-btn.visible { display: block; }
-  .add-clip-btn:active { border-color: var(--amber); background: var(--amber-glow); }
-
+  /* ── ACTION BUTTONS ── */
   .process-btn {
     width: 100%;
     padding: 16px;
@@ -362,7 +386,6 @@
     min-height: 60px;
     cursor: text;
   }
-
   .dpr-box:focus {
     border-color: var(--amber-dim);
     border-left-color: var(--amber);
@@ -381,9 +404,21 @@
     letter-spacing: 2px;
     cursor: pointer;
     transition: all 0.2s;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
   }
   .copy-btn.copied { color: var(--green); border-color: var(--green); background: rgba(46,204,113,0.08); }
+
+  .sheet-note {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.5px;
+    text-align: center;
+    margin-bottom: 10px;
+    min-height: 16px;
+    display: none;
+  }
+  .sheet-note.visible { display: block; }
 
   .new-report-btn {
     width: 100%;
@@ -439,6 +474,16 @@
   <div class="header-meta" id="dateDisplay">—</div>
 </div>
 
+<!-- MODE TOGGLE -->
+<div class="mode-toggle-wrap">
+  <div class="mode-toggle">
+    <button class="mode-btn active" id="btn-daily" onclick="switchMode('daily')">Daily<br>Report</button>
+    <button class="mode-btn" id="btn-weekly" onclick="switchMode('weekly')">Weekly<br>Update</button>
+    <button class="mode-btn" id="btn-material" onclick="switchMode('material')">Material<br>Log</button>
+  </div>
+  <div class="mode-note" id="modeNote"></div>
+</div>
+
 <div class="main">
 
   <div class="record-section">
@@ -458,7 +503,7 @@
     <div class="timer" id="timer">0:00</div>
     <div class="mic-status" id="micStatus">Tap to start recording</div>
 
-    <div class="instruction">
+    <div class="instruction" id="instructionText">
       <strong>Bolne ka sequence:</strong><br>
       1. Site pe kitne log hain aur kaunse log hain<br>
       2. Aaj kya kaam hona hai / complete ho gaya hai<br>
@@ -473,12 +518,9 @@
     <div id="clipList"></div>
   </div>
 
-  <!-- Add another clip -->
-  <button class="add-clip-btn" id="addClipBtn" onclick="addAnotherClip()">+ Add Another Clip</button>
-
   <div class="error-box" id="errorBox"></div>
 
-  <button class="process-btn" id="processBtn" onclick="generateDPR()">Generate Report</button>
+  <button class="process-btn" id="processBtn" onclick="generateReport()">Generate Report</button>
   <button class="redo-btn" id="redoBtn" onclick="redoAll()">✕ Start Over — Clear All Clips</button>
 
   <div class="status-bar" id="statusBar">
@@ -487,10 +529,11 @@
   </div>
 
   <div class="dpr-section" id="dprSection">
-    <div class="dpr-label">Generated Report — Ready to Post</div>
+    <div class="dpr-label" id="dprLabel">Generated Report — Ready to Post</div>
     <div class="dpr-edit-hint">Tap report to edit before copying</div>
     <div class="dpr-box" id="dprOutput" contenteditable="true" spellcheck="false"></div>
     <button class="copy-btn" id="copyBtn" onclick="copyDPR()">Copy &amp; Post to Group</button>
+    <div class="sheet-note" id="sheetNote"></div>
     <button class="new-report-btn" onclick="redoAll()">Start New Report</button>
   </div>
 
@@ -514,14 +557,93 @@
   const yyyy = now.getFullYear();
   document.getElementById('dateDisplay').textContent = `${dd}/${mm}/${yyyy}`;
 
+  // ─── MODE CONFIG ──────────────────────────────────────────
+  const MODES = {
+    daily: {
+      label: 'Daily Report — Voice Input',
+      instruction: `<strong>Bolne ka sequence:</strong><br>
+1. Site pe kitne log hain aur kaunse log hain<br>
+2. Aaj kya kaam hona hai / complete ho gaya hai<br>
+3. Koi problem ya delay<br>
+4. Kal ka plan`,
+      dprLabel: 'Progress Report — Ready to Post',
+      sheetNote: null
+    },
+    weekly: {
+      label: 'Weekly Update — Voice Input',
+      instruction: `<strong>Mon &amp; Tue — Progress ka update yahan daalo.</strong><br><br>
+<strong>Bolne ka sequence:</strong><br>
+1. Har kaam ke baare mein bolo — time par chal raha hai, kitne din late hai, ya complete ho gaya<br>
+2. Agar koi kaam ruka hua hai toh reason bolo<br>
+3. Ab kya kaam shuru hoga aur kab`,
+      dprLabel: 'Weekly Update — Ready to Post',
+      sheetNote: 'Timeline sheet updated automatically.'
+    },
+    material: {
+      label: 'Material Log — Voice Input',
+      instruction: `<strong>Material aate hi yahan log karo.</strong><br><br>
+<strong>Bolne ka sequence:</strong><br>
+1. Kaunsa material aaya aur kis area ke liye<br>
+2. Kitna aaya — quantity batao<br>
+3. Condition theek hai ya koi problem hai<br>
+4. Kuch nahi aaya ya aadha aaya toh reason aur baaki kab aayega`,
+      dprLabel: 'Material Update — Ready to Post',
+      sheetNote: 'Materials sheet updated automatically.'
+    }
+  };
+
+  // ─── MODE STATE ───────────────────────────────────────────
+  let currentMode = 'daily';
+
+  // Check if Weekly Update is available (Mon=1, Tue=2)
+  const todayDay = now.getDay();
+  const weeklyAvailable = (todayDay === 1 || todayDay === 2);
+
+  function initModeToggle() {
+    if (!weeklyAvailable) {
+      const btn = document.getElementById('btn-weekly');
+      btn.classList.add('disabled');
+      document.getElementById('modeNote').textContent = 'Mon & Tue ko available hoga';
+    }
+  }
+
+  function switchMode(mode) {
+    if (mode === 'weekly' && !weeklyAvailable) return;
+    if (clips.length > 0 || isRecording) {
+      // If recordings in progress, confirm before switching
+      if (!confirm('Switch mode? Current recordings will be cleared.')) return;
+      redoAll();
+    }
+    currentMode = mode;
+
+    // Update toggle buttons
+    ['daily', 'weekly', 'material'].forEach(m => {
+      document.getElementById(`btn-${m}`).classList.remove('active');
+    });
+    document.getElementById(`btn-${mode}`).classList.add('active');
+
+    // Update mode note
+    if (!weeklyAvailable) {
+      document.getElementById('modeNote').textContent = 'Mon & Tue ko available hoga';
+    } else {
+      document.getElementById('modeNote').textContent = '';
+    }
+
+    // Update instruction text and labels
+    const cfg = MODES[mode];
+    document.getElementById('recordLabel').textContent = cfg.label;
+    document.getElementById('instructionText').innerHTML = cfg.instruction;
+    document.getElementById('dprLabel').textContent = cfg.dprLabel;
+  }
+
+  initModeToggle();
+
   // ─── STATE ────────────────────────────────────────────────
   let mediaRecorder = null;
   let audioChunks = [];
   let isRecording = false;
   let timerInterval = null;
   let seconds = 0;
-
-  // clips = [{ blob, mimeType, duration, url }]
   let clips = [];
 
   // ─── TIMER ────────────────────────────────────────────────
@@ -574,12 +696,8 @@
       document.getElementById('micBtn').classList.add('recording');
       document.getElementById('micStatus').textContent = 'Recording... tap to stop';
       document.getElementById('micStatus').classList.add('active');
-
-      // hide Add Clip button while recording
-      document.getElementById('addClipBtn').classList.remove('visible');
       document.getElementById('processBtn').classList.remove('visible');
       document.getElementById('redoBtn').classList.remove('visible');
-
       startTimer();
 
     } catch (err) {
@@ -602,16 +720,13 @@
     const url = URL.createObjectURL(blob);
     clips.push({ blob, mimeType, duration, url });
 
-    document.getElementById('micStatus').textContent = `Clip ${clips.length} saved ✓`;
     document.getElementById('timer').classList.remove('visible');
-
     renderClips();
 
-    // Update record label
-    document.getElementById('recordLabel').textContent = 'Add Another Clip (Optional)';
-    document.getElementById('micStatus').textContent = 'Tap mic to record another clip';
+    const cfg = MODES[currentMode];
+    document.getElementById('recordLabel').textContent = cfg.label;
+    document.getElementById('micStatus').textContent = `Clip ${clips.length} saved ✓`;
 
-    document.getElementById('addClipBtn').classList.remove('visible'); // not needed — mic is visible
     document.getElementById('processBtn').classList.add('visible');
     document.getElementById('redoBtn').classList.add('visible');
   }
@@ -653,24 +768,16 @@
     renderClips();
 
     if (clips.length === 0) {
-      // Back to fresh state
-      document.getElementById('recordLabel').textContent = 'Site Progress Report — Voice Input';
+      const cfg = MODES[currentMode];
+      document.getElementById('recordLabel').textContent = cfg.label;
       document.getElementById('micStatus').textContent = 'Tap to start recording';
       document.getElementById('processBtn').classList.remove('visible');
       document.getElementById('redoBtn').classList.remove('visible');
-    } else {
-      document.getElementById('clipsLabel').textContent =
-        `Recorded Clips — ${clips.length} clip${clips.length > 1 ? 's' : ''}`;
     }
   }
 
-  function addAnotherClip() {
-    // Just a helper — mic button already does this; button hidden for now
-    document.getElementById('micStatus').textContent = 'Tap mic to record another clip';
-  }
-
-  // ─── GENERATE DPR ─────────────────────────────────────────
-  async function generateDPR() {
+  // ─── GENERATE ─────────────────────────────────────────────
+  async function generateReport() {
     if (clips.length === 0) { showError('No recordings found. Please record first.'); return; }
     hideError();
     setStatus(`Sending ${clips.length} clip${clips.length > 1 ? 's' : ''} to Gemini...`);
@@ -679,7 +786,6 @@
     document.getElementById('dprSection').classList.remove('visible');
 
     try {
-      // Encode all clips to base64
       const audioPayload = [];
       for (let i = 0; i < clips.length; i++) {
         setStatus(`Preparing clip ${i + 1} of ${clips.length}...`);
@@ -691,6 +797,7 @@
 
       const form = new FormData();
       form.append('action', 'generateDPR');
+      form.append('mode', currentMode);
       form.append('project', projectName);
       form.append('audioPayload', JSON.stringify(audioPayload));
       form.append('date', now.toISOString());
@@ -731,7 +838,6 @@
     document.getElementById('statusText').textContent = text;
     document.getElementById('statusBar').classList.add('visible');
   }
-
   function hideStatus() { document.getElementById('statusBar').classList.remove('visible'); }
 
   // ─── DPR OUTPUT ───────────────────────────────────────────
@@ -739,6 +845,17 @@
     const box = document.getElementById('dprOutput');
     box.textContent = text;
     document.getElementById('dprSection').classList.add('visible');
+
+    // Show sheet note based on mode
+    const cfg = MODES[currentMode];
+    const noteEl = document.getElementById('sheetNote');
+    if (cfg.sheetNote) {
+      noteEl.textContent = cfg.sheetNote;
+      noteEl.classList.add('visible');
+    } else {
+      noteEl.classList.remove('visible');
+    }
+
     document.getElementById('dprSection').scrollIntoView({ behavior: 'smooth' });
   }
 
@@ -761,12 +878,10 @@
     el.textContent = msg;
     el.classList.add('visible');
   }
-
   function hideError() { document.getElementById('errorBox').classList.remove('visible'); }
 
-  // ─── REDO — FULL RESET ────────────────────────────────────
+  // ─── REDO ─────────────────────────────────────────────────
   function redoAll() {
-    // Revoke all object URLs
     clips.forEach(c => URL.revokeObjectURL(c.url));
     clips = [];
     audioChunks = [];
@@ -778,13 +893,16 @@
     document.getElementById('micStatus').textContent = 'Tap to start recording';
     document.getElementById('micStatus').classList.remove('active');
     document.getElementById('micBtn').classList.remove('recording');
-    document.getElementById('recordLabel').textContent = 'Site Progress Report — Voice Input';
+
+    const cfg = MODES[currentMode];
+    document.getElementById('recordLabel').textContent = cfg.label;
+
     document.getElementById('processBtn').classList.remove('visible');
     document.getElementById('redoBtn').classList.remove('visible');
-    document.getElementById('addClipBtn').classList.remove('visible');
     document.getElementById('dprSection').classList.remove('visible');
     document.getElementById('clipsSection').classList.remove('visible');
     document.getElementById('clipList').innerHTML = '';
+    document.getElementById('sheetNote').classList.remove('visible');
     hideStatus();
     hideError();
 
