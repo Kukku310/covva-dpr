@@ -529,7 +529,7 @@
   <div class="mode-toggle">
     <button class="mode-btn active" id="btn-daily" onclick="switchMode('daily')">Daily<br>Report</button>
     <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
-      <button class="mode-btn" id="btn-weekly" onclick="switchMode('weekly')" style="width:100%;">Weekly<br>Update</button>
+      <button class="mode-btn" id="btn-weekly" onclick="switchMode('weekly')" style="width:100%;">Timeline<br>Update</button>
       <div class="mode-note" id="modeNote"></div>
     </div>
     <button class="mode-btn" id="btn-material" onclick="switchMode('material')">Material<br>Log</button>
@@ -622,13 +622,13 @@
       sheetNote: null
     },
     weekly: {
-      label: 'Weekly Update — Voice Input',
+      label: 'Timeline Update — Voice Input',
       instruction: `<strong>Mon &amp; Tue — Progress ka update yahan daalo.</strong><br><br>
 <strong>Bolne ka sequence:</strong><br>
 1. Har kaam ke baare mein bolo — time par chal raha hai, kitne din late hai, ya complete ho gaya<br>
 2. Agar koi kaam ruka hua hai toh reason bolo<br>
 3. Ab kya kaam shuru hoga aur kab`,
-      dprLabel: 'Weekly Update — Ready to Post',
+      dprLabel: 'Timeline Update — Ready to Post',
       sheetNote: 'Timeline sheet updated automatically.'
     },
     material: {
