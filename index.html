@@ -119,10 +119,10 @@
   .mode-note {
     font-family: 'DM Mono', monospace;
     font-size: 10px;
-    color: var(--text-dim);
+    color: var(--amber);
     letter-spacing: 0.5px;
-    min-height: 16px;
-    padding-bottom: 4px;
+    text-align: center;
+    min-height: 14px;
   }
 
   /* ── MAIN ── */
@@ -478,10 +478,12 @@
 <div class="mode-toggle-wrap">
   <div class="mode-toggle">
     <button class="mode-btn active" id="btn-daily" onclick="switchMode('daily')">Daily<br>Report</button>
-    <button class="mode-btn" id="btn-weekly" onclick="switchMode('weekly')">Weekly<br>Update</button>
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+      <button class="mode-btn" id="btn-weekly" onclick="switchMode('weekly')" style="width:100%;">Weekly<br>Update</button>
+      <div class="mode-note" id="modeNote"></div>
+    </div>
     <button class="mode-btn" id="btn-material" onclick="switchMode('material')">Material<br>Log</button>
   </div>
-  <div class="mode-note" id="modeNote"></div>
 </div>
 
 <div class="main">
@@ -603,7 +605,7 @@
     if (!weeklyAvailable) {
       const btn = document.getElementById('btn-weekly');
       btn.classList.add('disabled');
-      document.getElementById('modeNote').textContent = 'Mon & Tue ko available hoga';
+      document.getElementById('modeNote').textContent = 'Mon & Tue ko ON hoga';
     }
   }
 
@@ -624,7 +626,7 @@
 
     // Update mode note
     if (!weeklyAvailable) {
-      document.getElementById('modeNote').textContent = 'Mon & Tue ko available hoga';
+      document.getElementById('modeNote').textContent = 'Mon & Tue ko ON hoga';
     } else {
       document.getElementById('modeNote').textContent = '';
     }
