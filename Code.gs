@@ -1,0 +1,789 @@
+// ═══════════════════════════════════════════════════════════════
+//  COVVA — Site Intelligence Backend
+//  Google Apps Script
+//  Supports: Daily Report / Weekly Update / Material Log
+// ═══════════════════════════════════════════════════════════════
+
+// ─── YOUR KEYS ────────────────────────────────────────────────
+const GEMINI_API_KEY  = 'YOUR_GEMINI_API_KEY';   // Set this in Apps Script only — never commit the real key
+const SPREADSHEET_ID  = 'YOUR_SPREADSHEET_ID';   // Set this in Apps Script only — never commit the real ID
+
+const GEMINI_MODEL = 'gemini-2.0-flash';
+
+// ═══════════════════════════════════════════════════════════════
+//  GEMINI PROMPTS
+// ═══════════════════════════════════════════════════════════════
+
+const PROMPT_DAILY = `You are a construction site progress report formatter for COVVA, a high-end turnkey general contractor based in New Delhi.
+
+The audio contains a Hinglish voice note from a site supervisor. Listen carefully and extract all information, then format it as a clean English Progress Report.
+
+Trades on COVVA sites typically include: Carpenters, Stone workers, Painters, Polishers (PU/lacquer), Electricians, Plumbers, False ceiling workers, MS fabricators, Micro concrete applicators, Helpers.
+
+STRICT RULES:
+- Do NOT include any section where no information was provided
+- Do NOT include Supervisor in the headcount
+- Do NOT invent or assume anything not stated
+- Only show sections that have actual reported content
+- Convert all Hinglish naturally to clean English
+
+Output format — include ONLY sections that have content:
+
+📍 Progress Report
+[Project Name from context] | [Date from context]
+
+👷 Site Strength: [Total — do not count supervisor]
+  • [Trade]: [Count]
+
+✅ Completed Today
+- [Only if supervisor mentioned completed work]
+
+🔄 In Progress
+- [Work currently happening]
+
+⚠️ Site Flags
+- [Only if supervisor mentioned a problem, delay, or issue]
+
+📅 Tomorrow's Plan
+- [Only if supervisor mentioned tomorrow's plan]
+
+Output ONLY the formatted report. No preamble, no commentary, nothing else.`;
+
+
+const PROMPT_WEEKLY = `You are a construction site weekly progress formatter for COVVA, a high-end turnkey contractor in New Delhi.
+
+The audio is a Hinglish weekly update from a site supervisor covering activity-level progress.
+
+Extract the following for each activity mentioned:
+- Activity name
+- Status: on_track / delayed / completed / paused
+- If delayed: by how many days (integer)
+- If delayed: reason given
+- If paused: reason given
+- What new work is starting and when (if mentioned)
+
+Output TWO sections:
+
+SECTION 1 — WhatsApp-ready weekly summary:
+📊 Weekly Progress Update
+[Project] | [Date]
+
+Then list each activity mentioned with its status and any delay reason. Clean English. Concise.
+
+SECTION 2 — Structured data block for Sheet update.
+Format exactly as JSON on a single line after the marker ---JSON---:
+---JSON---
+{"updates":[{"activity":"[name]","status":"[on_track|delayed|completed|paused]","delay_days":[integer or 0],"reason":"[reason or null]","new_work_starting":"[description or null]","new_work_date":"[date string or null]"}]}
+
+Output ONLY these two sections. Nothing else.`;
+
+
+const PROMPT_MATERIAL = `You are a construction site material delivery logger for COVVA, a high-end turnkey contractor in New Delhi.
+
+The audio is a Hinglish material delivery update from a site supervisor.
+
+Extract:
+- Material name
+- Area / room it is for
+- Quantity received (with unit if mentioned)
+- Condition: good / damaged / partial
+- Damage detail if applicable
+- Quantity still pending (if partial)
+- Reason for partial delivery (if given)
+- Expected date for balance (if mentioned)
+- Supplier name (if mentioned)
+
+Output TWO sections:
+
+SECTION 1 — WhatsApp-ready message:
+📦 Material Update
+[Project] | [Date]
+
+[Material name] — [Area]
+Received: [qty] [condition note if issue]
+[If partial: Balance pending: [qty] — Expected: [date]]
+[If damaged: Issue: [detail]]
+
+SECTION 2 — Structured JSON for Sheet on a single line after the marker ---JSON---:
+---JSON---
+{"material":"[name]","area":"[area]","qty_received":"[qty]","condition":"[good|damaged|partial]","damage_detail":"[detail or null]","qty_pending":"[qty or null]","pending_reason":"[reason or null]","expected_date":"[date or null]","supplier":"[name or null]"}
+
+Output ONLY these two sections. Nothing else.`;
+
+
+// ═══════════════════════════════════════════════════════════════
+//  MAIN ENTRY POINT
+// ═══════════════════════════════════════════════════════════════
+
+function doPost(e) {
+  try {
+    let action, mode, project, date, audioPayload;
+    if (e.parameters && e.parameters.action) {
+      action       = e.parameters.action[0];
+      mode         = e.parameters.mode ? e.parameters.mode[0] : 'daily';
+      project      = e.parameters.project ? e.parameters.project[0] : null;
+      date         = e.parameters.date ? e.parameters.date[0] : null;
+      audioPayload = e.parameters.audioPayload ? JSON.parse(e.parameters.audioPayload[0]) : null;
+    } else {
+      const body   = JSON.parse(e.postData.contents);
+      action       = body.action;
+      mode         = body.mode || 'daily';
+      project      = body.project;
+      date         = body.date;
+      audioPayload = body.audioPayload;
+    }
+
+    // ─── New POST actions ──────────────────────────────────
+    if (action === 'saveProjectData') {
+      let payload;
+      if (e.parameters && e.parameters.payload) {
+        payload = JSON.parse(e.parameters.payload[0]);
+      } else {
+        payload = JSON.parse(e.postData.contents);
+      }
+      return saveProjectData(payload);
+    }
+
+    if (action === 'saveDPREdit') {
+      let proj, dt, editedTxt;
+      if (e.parameters && e.parameters.project) {
+        proj      = e.parameters.project[0];
+        dt        = e.parameters.date[0];
+        editedTxt = e.parameters.editedText[0];
+      } else {
+        const body = JSON.parse(e.postData.contents);
+        proj = body.project; dt = body.date; editedTxt = body.editedText;
+      }
+      return saveDPREditFn(proj, dt, editedTxt);
+    }
+
+    // ─── logDPR — Sheets write on Copy (edited text) ───────
+    if (action === 'logDPR') {
+      let logMode, logProject, logDate, logText;
+      if (e.parameters && e.parameters.mode) {
+        logMode    = e.parameters.mode[0];
+        logProject = e.parameters.project[0];
+        logDate    = e.parameters.date[0];
+        logText    = e.parameters.dprText[0];
+      } else {
+        const body = JSON.parse(e.postData.contents);
+        logMode = body.mode; logProject = body.project; logDate = body.date; logText = body.dprText;
+      }
+      const logDateFmt = formatDate(new Date(logDate));
+      if (logMode === 'daily') {
+        logToDPR(logProject, logDateFmt, logText);
+      }
+      // Weekly and Material logging already happened at generation time via JSON parsing
+      // (they write to Timeline/Materials tabs, not DPR); nothing extra needed here
+      return jsonResponse({ success: true });
+    }
+
+    if (action !== 'generateDPR') {
+      return jsonResponse({ success: false, error: 'Unknown action' });
+    }
+
+    const noLog = e.parameters && e.parameters.noLog && e.parameters.noLog[0] === 'true';
+    const dateFormatted = formatDate(new Date(date));
+
+    // Select prompt based on mode
+    let prompt;
+    if (mode === 'weekly')   prompt = PROMPT_WEEKLY;
+    else if (mode === 'material') prompt = PROMPT_MATERIAL;
+    else                     prompt = PROMPT_DAILY;
+
+    const rawResponse = generateWithGemini(audioPayload, prompt, project, dateFormatted);
+
+    // Parse response and write to appropriate sheet tab
+    let whatsappText = rawResponse;
+
+    if (mode === 'weekly') {
+      const parts = rawResponse.split('---JSON---');
+      whatsappText = parts[0].trim();
+      if (parts[1]) {
+        try {
+          const jsonData = JSON.parse(parts[1].trim());
+          logToTimeline(project, dateFormatted, jsonData.updates || []);
+        } catch(jsonErr) {
+          // JSON parse failed — still return whatsapp text, log the error
+          Logger.log('Weekly JSON parse error: ' + jsonErr.message);
+        }
+      }
+    } else if (mode === 'material') {
+      const parts = rawResponse.split('---JSON---');
+      whatsappText = parts[0].trim();
+      if (parts[1]) {
+        try {
+          const jsonData = JSON.parse(parts[1].trim());
+          logToMaterials(project, dateFormatted, jsonData);
+        } catch(jsonErr) {
+          Logger.log('Material JSON parse error: ' + jsonErr.message);
+        }
+      }
+    } else {
+      // Daily — log to DPR tab + MASTER only if noLog is not set
+      // (when noLog=true, logging deferred to Copy button via logDPR action)
+      if (!noLog) {
+        logToDPR(project, dateFormatted, whatsappText);
+      }
+    }
+
+    return jsonResponse({ success: true, dpr: whatsappText });
+
+  } catch (err) {
+    return jsonResponse({ success: false, error: err.message });
+  }
+}
+
+function doGet(e) {
+  const params = e ? e.parameter : {};
+  const action  = params.action || '';
+  const project = params.project || '';
+
+  if (action === 'dashboardData' && project) {
+    return serveDashboardData(project);
+  }
+  if (action === 'setupData' && project) {
+    return serveSetupData(project);
+  }
+  if (action === 'projectList') {
+    return serveProjectList();
+  }
+
+  return ContentService.createTextOutput('COVVA Site Intelligence Backend — OK');
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  DASHBOARD DATA — serveDashboardData(project)
+//  Called by dashboard.html on page load via doGet action=dashboardData
+// ═══════════════════════════════════════════════════════════════
+
+function serveDashboardData(project) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const safeProject = sanitizeTabName(project);
+
+    const activities = readTab(ss, safeProject + ' — Timeline', [
+      'activity', 'planned_start', 'planned_end', 'current_end',
+      'status', 'total_slippage_days', 'delay_log', 'last_updated'
+    ]);
+
+    const materials = readTab(ss, safeProject + ' — Materials', [
+      'date', 'material', 'area', 'qty_received', 'condition',
+      'damage_detail', 'qty_pending', 'pending_reason', 'expected_date', 'supplier', 'logged_at',
+      'inform_date', 'target_date', 'status', 'notes'
+    ]);
+
+    const dprs = readTab(ss, safeProject + ' — DPR', [
+      'date', 'project', 'report', 'logged_at'
+    ]);
+
+    // Enrich DPRs: add formatted_report alias and parse strength tags
+    dprs.forEach(function(dpr) {
+      dpr.formatted_report = dpr.report || '';
+    });
+
+    const result = {
+      success: true,
+      project: safeProject,
+      activities: activities,
+      materials: materials,
+      dprs: dprs
+    };
+
+    return jsonResponse(result);
+  } catch(err) {
+    return jsonResponse({ success: false, error: err.message });
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  SETUP DATA — serveSetupData(project)
+//  Called by setup.html to load project data for editing
+// ═══════════════════════════════════════════════════════════════
+
+function serveSetupData(project) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const safeProject = sanitizeTabName(project);
+
+    const activities = readTabRaw(ss, safeProject + ' — Timeline');
+    const materials  = readTabRaw(ss, safeProject + ' — Materials');
+    const dprs       = readTabRaw(ss, safeProject + ' — DPR');
+
+    // Convert DPR rows to objects with date + report
+    const dprObjects = dprs.map(function(row) {
+      return { date: row[0] || '', project: row[1] || '', report: row[2] || '', formatted_report: row[2] || '', logged_at: row[3] || '' };
+    });
+
+    return jsonResponse({
+      success: true,
+      project: safeProject,
+      activities: activities,
+      materials: materials,
+      dprs: dprObjects
+    });
+  } catch(err) {
+    return jsonResponse({ success: false, error: err.message });
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  PROJECT LIST — serveProjectList()
+//  Returns array of project names derived from sheet tab names
+// ═══════════════════════════════════════════════════════════════
+
+function serveProjectList() {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheets = ss.getSheets();
+    const projectSet = {};
+
+    sheets.forEach(function(s) {
+      const name = s.getName();
+      // Match tabs ending in "— DPR"
+      const match = name.match(/^(.+) — DPR$/);
+      if (match) {
+        projectSet[match[1]] = true;
+      }
+    });
+
+    return jsonResponse({ success: true, projects: Object.keys(projectSet) });
+  } catch(err) {
+    return jsonResponse({ success: false, error: err.message });
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  SAVE PROJECT DATA — saveProjectData(payload)
+//  Called by setup.html Submit (new project) or Save Row (edit)
+//  Routed via doPost when action=saveProjectData
+// ═══════════════════════════════════════════════════════════════
+
+function saveProjectData(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const project = sanitizeTabName(payload.project || '');
+    if (!project) throw new Error('Project name required');
+
+    const now = new Date().toLocaleString('en-IN');
+
+    // ─── Timeline tab ─────────────────────────────────────────
+    const timelineHeaders = [
+      'Activity', 'Planned Start', 'Planned End', 'Current End',
+      'Status', 'Total Slippage Days', 'Delay Log', 'Last Updated',
+      'Manual Override', 'Override Timestamp'
+    ];
+    const timelineSheet = getOrCreateTab(ss, project + ' — Timeline', timelineHeaders,
+      [180, 110, 110, 110, 100, 100, 400, 140, 100, 140]
+    );
+
+    // ─── Materials tab ────────────────────────────────────────
+    const matHeaders = [
+      'Date', 'Material', 'Area', 'Qty Received', 'Condition',
+      'Damage Detail', 'Qty Pending', 'Pending Reason', 'Expected Date',
+      'Supplier', 'Logged At', 'Inform Date', 'Target Date', 'Status', 'Notes',
+      'Manual Override', 'Override Timestamp'
+    ];
+    const matSheet = getOrCreateTab(ss, project + ' — Materials', matHeaders,
+      [100, 160, 140, 100, 90, 200, 100, 180, 110, 140, 160, 110, 110, 140, 200, 100, 140]
+    );
+
+    // ─── DPR tab (just ensure it exists) ─────────────────────
+    getOrCreateTab(ss, project + ' — DPR',
+      ['Date', 'Project', 'Formatted Report', 'Logged At'], [100, 140, 500, 160]
+    );
+
+    // ─── Handle single-row update (from Save Row button) ─────
+    if (payload.updateType === 'activity') {
+      upsertActivityRow(timelineSheet, payload, now);
+      return jsonResponse({ success: true });
+    }
+    if (payload.updateType === 'material') {
+      upsertMaterialRow(matSheet, payload, now);
+      return jsonResponse({ success: true });
+    }
+
+    // ─── Full project save (new project) ──────────────────────
+    (payload.activities || []).forEach(function(act) {
+      upsertActivityRow(timelineSheet, act, now);
+    });
+    (payload.materials || []).forEach(function(mat) {
+      upsertMaterialRow(matSheet, mat, now);
+    });
+
+    return jsonResponse({ success: true });
+
+  } catch(err) {
+    return jsonResponse({ success: false, error: err.message });
+  }
+}
+
+function upsertActivityRow(sheet, act, now) {
+  const data = sheet.getDataRange().getValues();
+  let foundRow = -1;
+  const actName = String(act.activity || '').toLowerCase().trim();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]).toLowerCase().trim() === actName) { foundRow = i + 1; break; }
+  }
+
+  const overrideFlag  = act.manual_override ? 'YES' : '';
+  const overrideStamp = act.manual_override ? now : '';
+
+  // If current_end is empty, default to planned_end — never mandatory at row creation
+  const resolvedPlannedEnd = act.planned_end || (foundRow > 0 ? data[foundRow-1][2] : '');
+  const resolvedCurrentEnd = act.current_end || (foundRow > 0 ? data[foundRow-1][3] : '') || resolvedPlannedEnd;
+
+  if (foundRow > 0) {
+    sheet.getRange(foundRow, 1, 1, 10).setValues([[
+      act.activity || data[foundRow-1][0],
+      act.planned_start || data[foundRow-1][1],
+      resolvedPlannedEnd,
+      resolvedCurrentEnd,
+      act.status        || data[foundRow-1][4],
+      data[foundRow-1][5] || 0,  // preserve slippage
+      data[foundRow-1][6] || '',  // preserve delay log
+      now,
+      overrideFlag,
+      overrideStamp
+    ]]);
+  } else {
+    sheet.appendRow([
+      act.activity || '', act.planned_start || '', resolvedPlannedEnd,
+      resolvedCurrentEnd, act.status || 'Not Started', 0, '', now,
+      overrideFlag, overrideStamp
+    ]);
+  }
+}
+
+function upsertMaterialRow(sheet, mat, now) {
+  const data = sheet.getDataRange().getValues();
+  let foundRow = -1;
+  const matName = String(mat.material || '').toLowerCase().trim();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][1]).toLowerCase().trim() === matName) { foundRow = i + 1; break; }
+  }
+
+  const overrideFlag  = mat.manual_override ? 'YES' : '';
+  const overrideStamp = mat.manual_override ? now : '';
+
+  if (foundRow > 0) {
+    sheet.getRange(foundRow, 1, 1, 17).setValues([[
+      data[foundRow-1][0],  // preserve original date
+      mat.material  || data[foundRow-1][1],
+      mat.area      || data[foundRow-1][2],
+      data[foundRow-1][3],  // preserve qty received (from voice logs)
+      data[foundRow-1][4],  // preserve condition
+      data[foundRow-1][5],  // preserve damage detail
+      data[foundRow-1][6],  // preserve qty pending
+      data[foundRow-1][7],  // preserve pending reason
+      mat.target_date || data[foundRow-1][8],
+      data[foundRow-1][9],  // preserve supplier
+      now,
+      mat.inform_date || data[foundRow-1][11] || '',
+      mat.target_date || data[foundRow-1][12] || '',
+      mat.status  || data[foundRow-1][13] || '',
+      mat.notes   || data[foundRow-1][14] || '',
+      overrideFlag,
+      overrideStamp
+    ]]);
+  } else {
+    sheet.appendRow([
+      now, mat.material || '', mat.area || '', '', '', '', '', '', mat.target_date || '', '', now,
+      mat.inform_date || '', mat.target_date || '', mat.status || 'Not Yet Informed', mat.notes || '',
+      overrideFlag, overrideStamp
+    ]);
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  SAVE DPR EDIT — saveDPREdit(project, date, editedText)
+//  Called by setup.html when a DPR is manually corrected
+//  Routed via doPost when action=saveDPREdit
+// ═══════════════════════════════════════════════════════════════
+
+function saveDPREditFn(project, date, editedText) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const tabName = sanitizeTabName(project) + ' — DPR';
+    const sheet = ss.getSheetByName(tabName);
+    if (!sheet) throw new Error('DPR tab not found: ' + tabName);
+
+    const data = sheet.getDataRange().getValues();
+    // Check if sheet has Manually Edited column (col 5 = index 4)
+    // Ensure header has those columns
+    const headers = data[0];
+    if (headers.length < 5) {
+      sheet.getRange(1, 5).setValue('Edit Flag');
+      sheet.getRange(1, 6).setValue('Edited At');
+    }
+
+    // Find row by date
+    const dateStr = String(date).trim();
+    let foundRow = -1;
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][0]).trim() === dateStr) { foundRow = i + 1; break; }
+    }
+
+    if (foundRow < 0) throw new Error('DPR row not found for date: ' + dateStr);
+
+    const now = new Date().toLocaleString('en-IN');
+    sheet.getRange(foundRow, 3).setValue(editedText);
+    sheet.getRange(foundRow, 5).setValue('Manually Edited');
+    sheet.getRange(foundRow, 6).setValue(now);
+
+    return jsonResponse({ success: true });
+  } catch(err) {
+    return jsonResponse({ success: false, error: err.message });
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  READ HELPERS
+// ═══════════════════════════════════════════════════════════════
+
+function readTab(ss, tabName, fieldNames) {
+  const sheet = ss.getSheetByName(tabName);
+  if (!sheet) return [];
+  const data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return [];
+  return data.slice(1).map(function(row) {
+    const obj = {};
+    fieldNames.forEach(function(f, i) {
+      obj[f] = row[i] !== undefined ? String(row[i]) : '';
+    });
+    return obj;
+  });
+}
+
+function readTabRaw(ss, tabName) {
+  const sheet = ss.getSheetByName(tabName);
+  if (!sheet) return [];
+  const data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return [];
+  const headers = data[0];
+  return data.slice(1).map(function(row) {
+    const obj = {};
+    headers.forEach(function(h, i) {
+      const key = String(h).toLowerCase().trim().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+      obj[key] = row[i] !== undefined ? String(row[i]) : '';
+      obj[h] = obj[key]; // also keep original header key
+    });
+    return obj;
+  });
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  GEMINI — MULTI-CLIP CALL
+// ═══════════════════════════════════════════════════════════════
+
+function generateWithGemini(audioPayload, systemPrompt, project, dateFormatted) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+
+  const parts = audioPayload.map(function(clip) {
+    return { inline_data: { mime_type: clip.mime, data: clip.base64 } };
+  });
+  parts.push({
+    text: `Project: ${project}\nDate: ${dateFormatted}\nNumber of audio clips: ${audioPayload.length}\n\nListen to all clips in order. If a later clip corrects something in an earlier clip, use the correction. Synthesize all information into one output.`
+  });
+
+  const payload = {
+    contents: [{ parts: parts }],
+    system_instruction: { parts: [{ text: systemPrompt }] },
+    generationConfig: { temperature: 0.2, maxOutputTokens: 1500 }
+  };
+
+  const response = UrlFetchApp.fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+
+  if (response.getResponseCode() !== 200) {
+    throw new Error('Gemini error: ' + response.getContentText());
+  }
+
+  const result = JSON.parse(response.getContentText());
+  return result.candidates[0].content.parts[0].text.trim();
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  SHEET TAB HELPERS — AUTO-CREATE PER PROJECT
+// ═══════════════════════════════════════════════════════════════
+
+function getOrCreateTab(ss, tabName, headers, columnWidths) {
+  let sheet = ss.getSheetByName(tabName);
+  if (!sheet) {
+    sheet = ss.insertSheet(tabName);
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+    if (columnWidths) {
+      columnWidths.forEach(function(w, i) { sheet.setColumnWidth(i + 1, w); });
+    }
+  }
+  return sheet;
+}
+
+function sanitizeTabName(project) {
+  return project.replace(/[^a-zA-Z0-9 ]/g, '').trim();
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  DAILY REPORT LOGGER → [Project] — DPR + MASTER
+// ═══════════════════════════════════════════════════════════════
+
+function logToDPR(project, dateFormatted, dpr) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const tabName = sanitizeTabName(project) + ' — DPR';
+
+  const sheet = getOrCreateTab(ss, tabName,
+    ['Date', 'Project', 'Formatted Report', 'Logged At'],
+    [100, 140, 500, 160]
+  );
+  sheet.appendRow([dateFormatted, project, dpr, new Date().toLocaleString('en-IN')]);
+
+  // MASTER tab aggregation
+  const master = getOrCreateTab(ss, 'MASTER',
+    ['Date', 'Project', 'Formatted Report', 'Logged At'],
+    [100, 140, 500, 160]
+  );
+  master.appendRow([dateFormatted, project, dpr, new Date().toLocaleString('en-IN')]);
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  WEEKLY UPDATE LOGGER → [Project] — Timeline
+// ═══════════════════════════════════════════════════════════════
+
+function logToTimeline(project, dateFormatted, updates) {
+  if (!updates || updates.length === 0) return;
+
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const tabName = sanitizeTabName(project) + ' — Timeline';
+
+  const headers = [
+    'Activity', 'Planned Start', 'Planned End', 'Current End',
+    'Status', 'Total Slippage Days', 'Delay Log', 'Last Updated'
+  ];
+  const sheet = getOrCreateTab(ss, tabName, headers, [180, 110, 110, 110, 100, 100, 400, 140]);
+
+  const data = sheet.getDataRange().getValues();
+  // Build map of existing activity rows (row index in sheet = data index + 1 for header)
+  const activityRowMap = {};
+  for (let i = 1; i < data.length; i++) {
+    const actName = String(data[i][0]).toLowerCase().trim();
+    if (actName) activityRowMap[actName] = i + 1; // 1-based sheet row
+  }
+
+  updates.forEach(function(update) {
+    const actKey = String(update.activity).toLowerCase().trim();
+    const existingRow = activityRowMap[actKey];
+    const loggedAt = new Date().toLocaleString('en-IN');
+
+    if (existingRow) {
+      // Row exists — update in place
+      const rowData = data[existingRow - 1];
+      const currentStatus  = update.status;
+      const currentSlippage = Number(rowData[5]) || 0;
+      const newSlippage = currentSlippage + (Number(update.delay_days) || 0);
+
+      // Recalculate Current End if delayed
+      let currentEnd = rowData[3];
+      if (update.delay_days && update.delay_days > 0 && currentEnd) {
+        try {
+          const endDate = new Date(currentEnd);
+          endDate.setDate(endDate.getDate() + Number(update.delay_days));
+          currentEnd = formatDate(endDate);
+        } catch(e) { /* keep existing if parse fails */ }
+      }
+
+      // Append to Delay Log
+      let delayLog = String(rowData[6] || '');
+      if (update.delay_days && update.delay_days > 0 && update.reason) {
+        const entry = `① ${dateFormatted} +${update.delay_days}d — ${update.reason}`;
+        delayLog = delayLog ? delayLog + '\n' + entry : entry;
+      }
+
+      sheet.getRange(existingRow, 3).setValue(currentEnd || rowData[2]); // Current End (col D = 4, but using col index)
+      sheet.getRange(existingRow, 4).setValue(currentEnd || rowData[3]);
+      sheet.getRange(existingRow, 5).setValue(currentStatus);
+      sheet.getRange(existingRow, 6).setValue(newSlippage);
+      sheet.getRange(existingRow, 7).setValue(delayLog);
+      sheet.getRange(existingRow, 8).setValue(loggedAt);
+
+    } else {
+      // New activity row
+      let delayLog = '';
+      if (update.delay_days && update.delay_days > 0 && update.reason) {
+        delayLog = `① ${dateFormatted} +${update.delay_days}d — ${update.reason}`;
+      }
+      sheet.appendRow([
+        update.activity,
+        '',   // Planned Start — to be filled manually
+        '',   // Planned End — to be filled manually
+        '',   // Current End — to be filled manually after first real dates are known
+        update.status,
+        Number(update.delay_days) || 0,
+        delayLog,
+        loggedAt
+      ]);
+    }
+  });
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  MATERIAL LOG → [Project] — Materials
+// ═══════════════════════════════════════════════════════════════
+
+function logToMaterials(project, dateFormatted, data) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const tabName = sanitizeTabName(project) + ' — Materials';
+
+  const headers = [
+    'Date', 'Material', 'Area', 'Qty Received', 'Condition',
+    'Damage Detail', 'Qty Pending', 'Pending Reason', 'Expected Date', 'Supplier', 'Logged At'
+  ];
+  const sheet = getOrCreateTab(ss, tabName, headers,
+    [100, 160, 140, 100, 90, 200, 100, 180, 110, 140, 160]
+  );
+
+  sheet.appendRow([
+    dateFormatted,
+    data.material     || '',
+    data.area         || '',
+    data.qty_received || '',
+    data.condition    || '',
+    data.damage_detail  || '',
+    data.qty_pending    || '',
+    data.pending_reason || '',
+    data.expected_date  || '',
+    data.supplier       || '',
+    new Date().toLocaleString('en-IN')
+  ]);
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  UTIL
+// ═══════════════════════════════════════════════════════════════
+
+function formatDate(d) {
+  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function jsonResponse(obj) {
+  const output = ContentService.createTextOutput(JSON.stringify(obj));
+  output.setMimeType(ContentService.MimeType.JSON);
+  return output;
+}
