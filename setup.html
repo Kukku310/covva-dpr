@@ -739,14 +739,17 @@ async function saveActivityRow(btn, context) {
   const overrideChip = tr.querySelector('.override-chip');
   const project = document.getElementById('editProjectSelector').value;
 
+  const plannedEndVal = inputs[2].value;
+  const currentEndVal = inputs[3].value || plannedEndVal; // default to Planned End if empty
+
   const rowData = {
     action: 'saveProjectData',
     project,
     updateType: 'activity',
     activity: inputs[0].value,
     planned_start: inputs[1].value,
-    planned_end: inputs[2].value,
-    current_end: inputs[3].value,
+    planned_end: plannedEndVal,
+    current_end: currentEndVal,
     status: inputs[4].value,
     manual_override: overrideChip ? overrideChip.classList.contains('active') : false
   };
