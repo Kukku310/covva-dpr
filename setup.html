@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>COVVA — Setup & Edit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* ── CSS VARIABLES ── */
+:root {
+  --bg:       #f5f2ee;
+  --surface:  #ffffff;
+  --panel:    #f0ece6;
+  --border:   #e0dbd3;
+  --amber:    #b8711f;
+  --amber-glow: rgba(184,113,31,0.12);
+  --amber-dim: #9a5a18;
+  --text:     #1a1714;
+  --dim:      #9a9188;
+  --mid:      #5c5148;
+  --red:      #a93226;
+  --green:    #1e8449;
+}
+body.dark {
+  --bg:       #0e0e0e;
+  --surface:  #161616;
+  --panel:    #1e1e1e;
+  --border:   #2a2a2a;
+  --amber:    #d4872a;
+  --amber-glow: rgba(212,135,42,0.15);
+  --amber-dim: #8a5515;
+  --text:     #e8e2d9;
+  --dim:      #7a7268;
+  --mid:      #a89f94;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  min-height: 100vh;
+}
+
+/* ── HEADER ── */
+.header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 20px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.logo {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 26px;
+  letter-spacing: 3px;
+  color: var(--amber);
+  line-height: 1;
+}
+.logo-sep { color: var(--border); font-size: 18px; }
+.page-title {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--mid);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  flex: 1;
+}
+.hdr-btn {
+  background: var(--panel);
+  color: var(--dim);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.hdr-btn:hover { border-color: var(--amber); color: var(--amber); }
+
+/* ── MAIN ── */
+.main { padding: 24px 20px; max-width: 960px; margin: 0 auto; }
+
+/* ── SECTION TITLE ── */
+.section-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 20px;
+  letter-spacing: 2px;
+  color: var(--text);
+  margin-bottom: 16px;
+  margin-top: 36px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.section-title:first-child { margin-top: 0; }
+.section-badge {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  background: var(--amber-glow);
+  color: var(--amber);
+  border: 1px solid var(--amber-dim);
+  border-radius: 3px;
+  padding: 2px 6px;
+}
+
+/* ── CARD ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+/* ── TWO-COLUMN GRID ── */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+@media (max-width: 600px) { .two-col { grid-template-columns: 1fr; } }
+
+/* ── FORM ELEMENTS ── */
+.field-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--dim);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+.field-input {
+  width: 100%;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-bottom: 2px solid var(--border);
+  border-radius: 4px;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  padding: 8px 10px;
+  outline: none;
+  transition: border-color 0.2s;
+  -webkit-appearance: none;
+}
+.field-input:focus {
+  border-bottom-color: var(--amber);
+  background: var(--surface);
+}
+.field-input::placeholder { color: var(--dim); opacity: 0.6; }
+
+/* Date input – hide default chrome */
+input[type="date"].field-input::-webkit-calendar-picker-indicator {
+  filter: invert(0.5) sepia(1) saturate(2) hue-rotate(10deg);
+  cursor: pointer;
+}
+body.dark input[type="date"].field-input::-webkit-calendar-picker-indicator { filter: invert(0.7); }
+
+select.field-input { cursor: pointer; }
+
+/* ── TABLE ── */
+.table-wrap { overflow-x: auto; margin-bottom: 12px; }
+table.edit-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+}
+.edit-table th {
+  text-align: left;
+  padding: 6px 8px;
+  font-size: 10px;
+  color: var(--dim);
+  letter-spacing: 0.3px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  background: var(--panel);
+}
+.edit-table td {
+  padding: 5px 4px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.edit-table tr:hover td { background: var(--amber-glow); }
+.edit-table .td-input {
+  background: transparent;
+  color: var(--text);
+  border: none;
+  border-bottom: 1px solid transparent;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  padding: 3px 4px;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.2s;
+  min-width: 80px;
+  -webkit-appearance: none;
+}
+.edit-table .td-input:focus { border-bottom-color: var(--amber); }
+.edit-table .td-select {
+  background: transparent;
+  color: var(--text);
+  border: none;
+  border-bottom: 1px solid transparent;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  padding: 3px 4px;
+  outline: none;
+  cursor: pointer;
+  width: 100%;
+}
+.edit-table .td-select:focus { border-bottom-color: var(--amber); }
+.edit-table .td-del {
+  background: none;
+  border: 1px solid rgba(169,50,38,0.3);
+  color: var(--red);
+  border-radius: 3px;
+  padding: 3px 7px;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.edit-table .td-del:hover { background: rgba(169,50,38,0.1); }
+
+/* ── SAVE ROW BTN ── */
+.save-row-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--dim);
+  border-radius: 3px;
+  padding: 3px 7px;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.save-row-btn:hover { border-color: var(--amber); color: var(--amber); }
+.save-row-btn.saved { color: var(--green); border-color: var(--green); }
+
+/* ── MANUAL OVERRIDE CHIP ── */
+.override-chip {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--dim);
+  border-radius: 10px;
+  padding: 2px 7px;
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.override-chip.active { background: var(--amber-glow); color: var(--amber); border-color: var(--amber-dim); }
+
+/* ── ADD ROW BTN ── */
+.add-row-btn {
+  background: none;
+  border: 1px solid var(--amber);
+  color: var(--amber);
+  border-radius: 4px;
+  padding: 7px 14px;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.3px;
+}
+.add-row-btn:hover { background: var(--amber); color: var(--bg); }
+
+/* ── SUBMIT BTN ── */
+.submit-btn {
+  background: var(--amber);
+  color: var(--bg);
+  border: none;
+  border-radius: 4px;
+  padding: 12px 24px;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 18px;
+  letter-spacing: 2px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 8px;
+}
+.submit-btn:hover { background: var(--amber-dim); }
+.submit-btn:active { transform: scale(0.98); }
+
+/* ── INLINE MESSAGE ── */
+.inline-msg {
+  display: none;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin-top: 10px;
+}
+.inline-msg.success { display: block; color: var(--green); background: rgba(30,132,73,0.08); border: 1px solid rgba(30,132,73,0.3); }
+.inline-msg.error   { display: block; color: var(--red);   background: rgba(169,50,38,0.08); border: 1px solid rgba(169,50,38,0.3); }
+
+/* ── TABS (for Section B) ── */
+.tab-bar {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0;
+}
+.tab-btn {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  padding: 8px 14px;
+  background: none;
+  border: none;
+  color: var(--dim);
+  cursor: pointer;
+  transition: all 0.2s;
+  border-bottom: 2px solid transparent;
+  letter-spacing: 0.3px;
+}
+.tab-btn.active { color: var(--amber); border-bottom-color: var(--amber); }
+.tab-panel { display: none; padding: 16px 0; }
+.tab-panel.active { display: block; }
+
+/* ── DPR ENTRY ── */
+.dpr-edit-row {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+.dpr-edit-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid transparent;
+  transition: background 0.15s;
+}
+.dpr-edit-header:hover { background: var(--panel); }
+.dpr-edit-header.open { border-bottom-color: var(--border); }
+.dpr-edit-date {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--amber);
+  min-width: 80px;
+}
+.dpr-edit-preview {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--dim);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dpr-edit-arrow { font-size: 10px; color: var(--dim); transition: transform 0.2s; }
+.dpr-edit-arrow.open { transform: rotate(90deg); }
+.dpr-edit-body {
+  display: none;
+  padding: 14px;
+  background: var(--panel);
+}
+.dpr-edit-body.open { display: block; }
+.dpr-textarea {
+  width: 100%;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--amber);
+  border-radius: 4px;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  padding: 12px;
+  line-height: 1.7;
+  min-height: 120px;
+  outline: none;
+  resize: vertical;
+  transition: border-color 0.2s;
+  margin-bottom: 8px;
+}
+.dpr-textarea:focus { border-color: var(--amber); }
+
+.footer {
+  padding: 20px;
+  text-align: center;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--dim);
+  letter-spacing: 1px;
+  border-top: 1px solid var(--border);
+  margin-top: 30px;
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">COVVA</div>
+  <div class="logo-sep">|</div>
+  <div class="page-title">Setup &amp; Edit</div>
+  <button class="hdr-btn" id="darkBtn" onclick="toggleTheme()">Dark Mode</button>
+</div>
+
+<div class="main">
+
+  <!-- ══════════════════════════════════════
+       SECTION A — New Project Setup
+  ══════════════════════════════════════ -->
+  <div class="section-title">
+    New Project Setup
+    <span class="section-badge">A</span>
+  </div>
+
+  <div class="card">
+    <div class="two-col">
+      <div>
+        <div class="field-label">Project Name</div>
+        <input class="field-input" type="text" id="newProjectName" placeholder="e.g. Modi Basement">
+      </div>
+      <div>
+        <div class="field-label">Client Name</div>
+        <input class="field-input" type="text" id="newClientName" placeholder="e.g. Mr. Ravi Modi">
+      </div>
+      <div>
+        <div class="field-label">Start Date</div>
+        <input class="field-input" type="date" id="newStartDate">
+      </div>
+      <div>
+        <div class="field-label">End Date</div>
+        <input class="field-input" type="date" id="newEndDate">
+      </div>
+      <div>
+        <div class="field-label">Project Manager</div>
+        <input class="field-input" type="text" id="newPM" placeholder="e.g. Abhishek Kukreja">
+      </div>
+    </div>
+
+    <!-- Activity Table -->
+    <div class="field-label" style="margin-bottom:8px">Activities</div>
+    <div class="table-wrap">
+      <table class="edit-table" id="newActivityTable">
+        <thead>
+          <tr>
+            <th>Activity Name</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+            <th>Status</th>
+            <th>Notes</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="newActivityBody"></tbody>
+      </table>
+    </div>
+    <button class="add-row-btn" onclick="addActivityRow('new')">+ Add Activity</button>
+
+    <!-- Material Table -->
+    <div class="field-label" style="margin-top:20px;margin-bottom:8px">Client Materials</div>
+    <div class="table-wrap">
+      <table class="edit-table" id="newMaterialTable">
+        <thead>
+          <tr>
+            <th>Material Name</th>
+            <th>Area</th>
+            <th>Inform Date</th>
+            <th>Target Date</th>
+            <th>Status</th>
+            <th>Notes</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="newMaterialBody"></tbody>
+      </table>
+    </div>
+    <button class="add-row-btn" onclick="addMaterialRow('new')">+ Add Material</button>
+
+    <br><br>
+    <button class="submit-btn" onclick="submitNewProject()">Create Project</button>
+    <div class="inline-msg" id="newProjectMsg"></div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════
+       SECTION B — Edit Existing Project
+  ══════════════════════════════════════ -->
+  <div class="section-title" style="margin-top:40px">
+    Edit Existing Project
+    <span class="section-badge">B</span>
+  </div>
+
+  <div class="card">
+    <div style="margin-bottom:16px">
+      <div class="field-label">Select Project</div>
+      <select class="field-input" id="editProjectSelector" onchange="loadProjectForEdit(this.value)" style="max-width:300px">
+        <option value="">Loading projects...</option>
+      </select>
+    </div>
+
+    <div id="editTabsContainer" style="display:none">
+      <div class="tab-bar">
+        <button class="tab-btn active" id="tabBtn-activities" onclick="switchEditTab('activities')">Activities</button>
+        <button class="tab-btn" id="tabBtn-materials" onclick="switchEditTab('materials')">Materials</button>
+        <button class="tab-btn" id="tabBtn-dpr" onclick="switchEditTab('dpr')">DPR Archive</button>
+      </div>
+
+      <!-- Activities Tab -->
+      <div class="tab-panel active" id="editTab-activities">
+        <div class="table-wrap">
+          <table class="edit-table" id="editActivityTable">
+            <thead>
+              <tr>
+                <th>Activity Name</th>
+                <th>Planned Start</th>
+                <th>Planned End</th>
+                <th>Current End</th>
+                <th>Status</th>
+                <th>Override</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="editActivityBody"></tbody>
+          </table>
+        </div>
+        <button class="add-row-btn" onclick="addActivityRow('edit')">+ Add Activity</button>
+        <div class="inline-msg" id="editActivityMsg"></div>
+      </div>
+
+      <!-- Materials Tab -->
+      <div class="tab-panel" id="editTab-materials">
+        <div class="table-wrap">
+          <table class="edit-table" id="editMaterialTable">
+            <thead>
+              <tr>
+                <th>Material</th>
+                <th>Area</th>
+                <th>Inform Date</th>
+                <th>Target Date</th>
+                <th>Status</th>
+                <th>Notes</th>
+                <th>Override</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="editMaterialBody"></tbody>
+          </table>
+        </div>
+        <button class="add-row-btn" onclick="addMaterialRow('edit')">+ Add Material</button>
+        <div class="inline-msg" id="editMaterialMsg"></div>
+      </div>
+
+      <!-- DPR Archive Tab -->
+      <div class="tab-panel" id="editTab-dpr">
+        <div id="editDPRList"></div>
+        <div class="inline-msg" id="editDPRMsg"></div>
+      </div>
+    </div>
+
+    <div id="editLoadingMsg" style="font-family:'DM Mono',monospace;font-size:12px;color:var(--dim);padding:10px 0;display:none">Loading project data...</div>
+  </div>
+
+</div>
+
+<div class="footer">COVVA SITE INTELLIGENCE</div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────────
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzcUokFn0MTGieOsC2a6r-HP883YPwBNLXPZB9MhBZaW4NI5cGF062K5k1AKT3feQWB/exec';
+
+// ─── THEME ────────────────────────────────────────────────────
+function applyTheme(isDark) {
+  document.body.classList.toggle('dark', isDark);
+  document.getElementById('darkBtn').textContent = isDark ? 'Light Mode' : 'Dark Mode';
+  try { localStorage.setItem('covva-setup-theme', isDark ? 'dark' : 'light'); } catch(e) {}
+}
+function toggleTheme() { applyTheme(!document.body.classList.contains('dark')); }
+(function(){
+  try {
+    const saved = localStorage.getItem('covva-setup-theme');
+    applyTheme(saved === 'dark');
+  } catch(e) { applyTheme(false); }
+})();
+
+// ─── ACTIVITY STATUS OPTIONS ──────────────────────────────────
+const ACT_STATUS_OPTIONS = ['Not Started','In Progress','Completed','Delayed'];
+const MAT_STATUS_OPTIONS = ['Not Yet Informed','Client Actioning','Ordered','Partial Delivery','Received'];
+
+// ─── ADD ACTIVITY ROW ─────────────────────────────────────────
+function activityStatusSelect(val) {
+  return `<select class="td-select">${ACT_STATUS_OPTIONS.map(o => `<option${o===val?' selected':''}>${o}</option>`).join('')}</select>`;
+}
+function materialStatusSelect(val) {
+  return `<select class="td-select">${MAT_STATUS_OPTIONS.map(o => `<option${o===val?' selected':''}>${o}</option>`).join('')}</select>`;
+}
+
+function addActivityRow(context, data) {
+  const tbody = document.getElementById(context === 'new' ? 'newActivityBody' : 'editActivityBody');
+  const rowIdx = Date.now();
+  const tr = document.createElement('tr');
+  tr.dataset.rowIdx = rowIdx;
+
+  if (context === 'edit') {
+    const d = data || {};
+    tr.innerHTML = `
+      <td><input class="td-input" type="text" value="${esc(d.activity||d['Activity']||'')}" placeholder="Activity name"></td>
+      <td><input class="td-input" type="date" value="${toDateInput(d.planned_start||d['Planned Start']||'')}"></td>
+      <td><input class="td-input" type="date" value="${toDateInput(d.planned_end||d['Planned End']||'')}"></td>
+      <td><input class="td-input" type="date" value="${toDateInput(d.current_end||d['Current End']||'')}"></td>
+      <td>${activityStatusSelect(d.status||d['Status']||'Not Started')}</td>
+      <td><button class="override-chip${d.manual_override?' active':''}" onclick="toggleOverride(this)">${d.manual_override?'OVERRIDDEN':'Override'}</button></td>
+      <td style="display:flex;gap:4px;align-items:center;padding:5px 4px">
+        <button class="save-row-btn" onclick="saveActivityRow(this, '${context}')">Save</button>
+        <button class="td-del" onclick="this.closest('tr').remove()">✕</button>
+      </td>
+    `;
+  } else {
+    tr.innerHTML = `
+      <td><input class="td-input" type="text" placeholder="Activity name"></td>
+      <td><input class="td-input" type="date"></td>
+      <td><input class="td-input" type="date"></td>
+      <td>${activityStatusSelect('Not Started')}</td>
+      <td><input class="td-input" type="text" placeholder="Notes"></td>
+      <td><button class="td-del" onclick="this.closest('tr').remove()">✕</button></td>
+    `;
+  }
+
+  tbody.appendChild(tr);
+}
+
+function addMaterialRow(context, data) {
+  const tbody = document.getElementById(context === 'new' ? 'newMaterialBody' : 'editMaterialBody');
+  const tr = document.createElement('tr');
+
+  if (context === 'edit') {
+    const d = data || {};
+    tr.innerHTML = `
+      <td><input class="td-input" type="text" value="${esc(d.material||d['Material']||'')}" placeholder="Material name"></td>
+      <td><input class="td-input" type="text" value="${esc(d.area||d['Area']||'')}"></td>
+      <td><input class="td-input" type="date" value="${toDateInput(d.inform_date||d['Inform Date']||'')}"></td>
+      <td><input class="td-input" type="date" value="${toDateInput(d.target_date||d['Target Date']||'')}"></td>
+      <td>${materialStatusSelect(d.status||d['Status']||'Not Yet Informed')}</td>
+      <td><input class="td-input" type="text" value="${esc(d.notes||d['Notes']||'')}"></td>
+      <td><button class="override-chip${d.manual_override?' active':''}" onclick="toggleOverride(this)">${d.manual_override?'OVERRIDDEN':'Override'}</button></td>
+      <td style="display:flex;gap:4px;align-items:center;padding:5px 4px">
+        <button class="save-row-btn" onclick="saveMaterialRow(this, '${context}')">Save</button>
+        <button class="td-del" onclick="this.closest('tr').remove()">✕</button>
+      </td>
+    `;
+  } else {
+    tr.innerHTML = `
+      <td><input class="td-input" type="text" placeholder="Material name"></td>
+      <td><input class="td-input" type="text" placeholder="Area/Room"></td>
+      <td><input class="td-input" type="date"></td>
+      <td><input class="td-input" type="date"></td>
+      <td>${materialStatusSelect('Not Yet Informed')}</td>
+      <td><input class="td-input" type="text" placeholder="Notes"></td>
+      <td><button class="td-del" onclick="this.closest('tr').remove()">✕</button></td>
+    `;
+  }
+
+  tbody.appendChild(tr);
+}
+
+function toggleOverride(btn) {
+  btn.classList.toggle('active');
+  btn.textContent = btn.classList.contains('active') ? 'OVERRIDDEN' : 'Override';
+}
+
+// ─── COLLECT TABLE DATA ───────────────────────────────────────
+function collectNewActivities() {
+  const rows = document.querySelectorAll('#newActivityBody tr');
+  return [...rows].map(tr => {
+    const cells = tr.querySelectorAll('input, select');
+    return { activity: cells[0].value, planned_start: cells[1].value, planned_end: cells[2].value, status: cells[3].value, notes: cells[4].value };
+  }).filter(r => r.activity.trim());
+}
+
+function collectNewMaterials() {
+  const rows = document.querySelectorAll('#newMaterialBody tr');
+  return [...rows].map(tr => {
+    const cells = tr.querySelectorAll('input, select');
+    return { material: cells[0].value, area: cells[1].value, inform_date: cells[2].value, target_date: cells[3].value, status: cells[4].value, notes: cells[5].value };
+  }).filter(r => r.material.trim());
+}
+
+// ─── SUBMIT NEW PROJECT ───────────────────────────────────────
+async function submitNewProject() {
+  const name = document.getElementById('newProjectName').value.trim();
+  if (!name) { showMsg('newProjectMsg', 'error', 'Project name is required.'); return; }
+
+  const payload = {
+    action: 'saveProjectData',
+    project: name,
+    client: document.getElementById('newClientName').value.trim(),
+    start_date: document.getElementById('newStartDate').value,
+    end_date: document.getElementById('newEndDate').value,
+    project_manager: document.getElementById('newPM').value.trim(),
+    activities: collectNewActivities(),
+    materials: collectNewMaterials()
+  };
+
+  showMsg('newProjectMsg', 'success', 'Saving...');
+
+  try {
+    const form = new FormData();
+    form.append('action', 'saveProjectData');
+    form.append('payload', JSON.stringify(payload));
+    const resp = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: form, redirect: 'follow' });
+    const data = await resp.json();
+    if (data.success) {
+      showMsg('newProjectMsg', 'success', `✓ Project "${name}" created successfully.`);
+      loadProjectList();
+    } else {
+      throw new Error(data.error || 'Save failed');
+    }
+  } catch(err) {
+    showMsg('newProjectMsg', 'error', 'Error: ' + err.message);
+  }
+}
+
+// ─── SAVE ROW ─────────────────────────────────────────────────
+async function saveActivityRow(btn, context) {
+  const tr = btn.closest('tr');
+  const inputs = tr.querySelectorAll('input, select');
+  const overrideChip = tr.querySelector('.override-chip');
+  const project = document.getElementById('editProjectSelector').value;
+
+  const rowData = {
+    action: 'saveProjectData',
+    project,
+    updateType: 'activity',
+    activity: inputs[0].value,
+    planned_start: inputs[1].value,
+    planned_end: inputs[2].value,
+    current_end: inputs[3].value,
+    status: inputs[4].value,
+    manual_override: overrideChip ? overrideChip.classList.contains('active') : false
+  };
+
+  btn.textContent = 'Saving...';
+  try {
+    const form = new FormData();
+    form.append('action', 'saveProjectData');
+    form.append('payload', JSON.stringify(rowData));
+    const resp = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: form, redirect: 'follow' });
+    const data = await resp.json();
+    if (data.success) {
+      btn.textContent = '✓ Saved';
+      btn.classList.add('saved');
+      setTimeout(() => { btn.textContent = 'Save'; btn.classList.remove('saved'); }, 2000);
+    } else throw new Error(data.error);
+  } catch(err) {
+    btn.textContent = 'Error';
+    showMsg('editActivityMsg', 'error', 'Save failed: ' + err.message);
+    setTimeout(() => { btn.textContent = 'Save'; }, 2000);
+  }
+}
+
+async function saveMaterialRow(btn, context) {
+  const tr = btn.closest('tr');
+  const inputs = tr.querySelectorAll('input, select');
+  const overrideChip = tr.querySelector('.override-chip');
+  const project = document.getElementById('editProjectSelector').value;
+
+  const rowData = {
+    action: 'saveProjectData',
+    project,
+    updateType: 'material',
+    material: inputs[0].value,
+    area: inputs[1].value,
+    inform_date: inputs[2].value,
+    target_date: inputs[3].value,
+    status: inputs[4].value,
+    notes: inputs[5].value,
+    manual_override: overrideChip ? overrideChip.classList.contains('active') : false
+  };
+
+  btn.textContent = 'Saving...';
+  try {
+    const form = new FormData();
+    form.append('action', 'saveProjectData');
+    form.append('payload', JSON.stringify(rowData));
+    const resp = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: form, redirect: 'follow' });
+    const data = await resp.json();
+    if (data.success) {
+      btn.textContent = '✓ Saved';
+      btn.classList.add('saved');
+      setTimeout(() => { btn.textContent = 'Save'; btn.classList.remove('saved'); }, 2000);
+    } else throw new Error(data.error);
+  } catch(err) {
+    btn.textContent = 'Error';
+    showMsg('editMaterialMsg', 'error', 'Save failed: ' + err.message);
+    setTimeout(() => { btn.textContent = 'Save'; }, 2000);
+  }
+}
+
+// ─── SAVE DPR EDIT ────────────────────────────────────────────
+async function saveDPREdit(btn, date) {
+  const project = document.getElementById('editProjectSelector').value;
+  const textarea = btn.closest('.dpr-edit-body').querySelector('.dpr-textarea');
+  const editedText = textarea.value;
+
+  btn.textContent = 'Saving...';
+  try {
+    const form = new FormData();
+    form.append('action', 'saveDPREdit');
+    form.append('project', project);
+    form.append('date', date);
+    form.append('editedText', editedText);
+    const resp = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: form, redirect: 'follow' });
+    const data = await resp.json();
+    if (data.success) {
+      btn.textContent = '✓ Saved';
+      btn.classList.add('saved');
+      showMsg('editDPRMsg', 'success', `DPR for ${date} updated.`);
+      setTimeout(() => { btn.textContent = 'Save Edit'; btn.classList.remove('saved'); }, 2000);
+    } else throw new Error(data.error);
+  } catch(err) {
+    btn.textContent = 'Error';
+    showMsg('editDPRMsg', 'error', 'Save failed: ' + err.message);
+    setTimeout(() => { btn.textContent = 'Save Edit'; }, 2000);
+  }
+}
+
+// ─── LOAD PROJECT FOR EDIT ────────────────────────────────────
+async function loadProjectForEdit(project) {
+  if (!project) {
+    document.getElementById('editTabsContainer').style.display = 'none';
+    return;
+  }
+
+  document.getElementById('editLoadingMsg').style.display = 'block';
+  document.getElementById('editTabsContainer').style.display = 'none';
+
+  try {
+    const url = `${APPS_SCRIPT_URL}?action=setupData&project=${encodeURIComponent(project)}`;
+    const resp = await fetch(url, { redirect: 'follow' });
+    const data = await resp.json();
+    if (!data.success) throw new Error(data.error || 'Load failed');
+
+    // Render Activities
+    const actBody = document.getElementById('editActivityBody');
+    actBody.innerHTML = '';
+    (data.activities || []).forEach(a => addActivityRow('edit', a));
+
+    // Render Materials
+    const matBody = document.getElementById('editMaterialBody');
+    matBody.innerHTML = '';
+    (data.materials || []).forEach(m => addMaterialRow('edit', m));
+
+    // Render DPR Archive
+    const dprList = document.getElementById('editDPRList');
+    dprList.innerHTML = '';
+    const dprs = [...(data.dprs || [])].sort((a,b) => new Date(b.date) - new Date(a.date));
+    dprs.forEach((dpr, i) => {
+      const text = dpr.report || dpr.formatted_report || '';
+      const row = document.createElement('div');
+      row.className = 'dpr-edit-row';
+      row.innerHTML = `
+        <div class="dpr-edit-header" id="dprEditHdr-${i}" onclick="toggleDPREditEntry(${i})">
+          <span class="dpr-edit-date">${dpr.date||'—'}</span>
+          <span class="dpr-edit-preview">${text.split('\n').filter(Boolean)[0]||'—'}</span>
+          <span class="dpr-edit-arrow" id="dprEditArrow-${i}">▶</span>
+        </div>
+        <div class="dpr-edit-body" id="dprEditBody-${i}">
+          <textarea class="dpr-textarea">${text}</textarea>
+          <button class="save-row-btn" onclick="saveDPREdit(this, '${dpr.date||''}')" style="margin-top:4px">Save Edit</button>
+        </div>
+      `;
+      dprList.appendChild(row);
+    });
+    if (!dprs.length) dprList.innerHTML = '<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--dim);padding:10px 0">No DPRs found for this project.</div>';
+
+    document.getElementById('editLoadingMsg').style.display = 'none';
+    document.getElementById('editTabsContainer').style.display = 'block';
+
+  } catch(err) {
+    document.getElementById('editLoadingMsg').style.display = 'none';
+    document.getElementById('editTabsContainer').style.display = 'none';
+    showMsg('editActivityMsg', 'error', 'Load failed: ' + err.message);
+  }
+}
+
+window.toggleDPREditEntry = function(i) {
+  const body  = document.getElementById(`dprEditBody-${i}`);
+  const arrow = document.getElementById(`dprEditArrow-${i}`);
+  const hdr   = document.getElementById(`dprEditHdr-${i}`);
+  const open  = body.classList.toggle('open');
+  arrow.classList.toggle('open', open);
+  hdr.classList.toggle('open', open);
+};
+
+// ─── TAB SWITCH ───────────────────────────────────────────────
+window.switchEditTab = function(tab) {
+  ['activities','materials','dpr'].forEach(t => {
+    document.getElementById(`editTab-${t}`).classList.toggle('active', t === tab);
+    document.getElementById(`tabBtn-${t}`).classList.toggle('active', t === tab);
+  });
+};
+
+// ─── LOAD PROJECT LIST ────────────────────────────────────────
+async function loadProjectList() {
+  try {
+    const url = `${APPS_SCRIPT_URL}?action=projectList`;
+    const resp = await fetch(url, { redirect: 'follow' });
+    const data = await resp.json();
+    if (!data.success || !data.projects) return;
+
+    const sel = document.getElementById('editProjectSelector');
+    sel.innerHTML = '<option value="">Select a project to edit...</option>';
+    data.projects.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p;
+      opt.textContent = p;
+      sel.appendChild(opt);
+    });
+  } catch(e) {
+    document.getElementById('editProjectSelector').innerHTML = '<option value="">Could not load projects</option>';
+  }
+}
+
+// ─── UTILS ────────────────────────────────────────────────────
+function showMsg(id, type, text) {
+  const el = document.getElementById(id);
+  el.className = `inline-msg ${type}`;
+  el.textContent = text;
+  if (type === 'success') setTimeout(() => { el.className = 'inline-msg'; el.textContent = ''; }, 4000);
+}
+
+function esc(str) {
+  return String(str || '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function toDateInput(str) {
+  if (!str) return '';
+  try {
+    const d = new Date(str);
+    if (isNaN(d)) return '';
+    return d.toISOString().substring(0, 10);
+  } catch(e) { return ''; }
+}
+
+// ─── INIT ─────────────────────────────────────────────────────
+loadProjectList();
+// Pre-fill today for new project start date
+document.getElementById('newStartDate').value = new Date().toISOString().substring(0,10);
+</script>
+</body>
+</html>
