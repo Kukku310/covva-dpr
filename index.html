@@ -157,6 +157,60 @@
     min-height: 14px;
   }
 
+  /* ── DATE OVERRIDE ── */
+  .date-override-wrap {
+    max-width: 520px;
+    margin: 0 auto;
+    padding: 0 20px;
+  }
+  .date-override-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0 6px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .date-override-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.3px;
+    flex: 1;
+  }
+  .date-override-arrow {
+    font-size: 9px;
+    color: var(--text-dim);
+    transition: transform 0.2s;
+  }
+  .date-override-arrow.open { transform: rotate(90deg); }
+  .date-override-panel {
+    display: none;
+    padding-bottom: 10px;
+  }
+  .date-override-panel.open { display: block; }
+  .date-override-input {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-bottom: 2px solid var(--border);
+    border-radius: 4px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    padding: 7px 10px;
+    outline: none;
+    transition: border-color 0.2s;
+    width: 100%;
+    max-width: 180px;
+    -webkit-appearance: none;
+  }
+  .date-override-input:focus { border-bottom-color: var(--amber); }
+  .date-override-input::-webkit-calendar-picker-indicator {
+    filter: invert(0.5) sepia(1) saturate(2) hue-rotate(10deg);
+    cursor: pointer;
+  }
+  body.light .date-override-input::-webkit-calendar-picker-indicator { filter: invert(0.3) sepia(0.5); }
+
   /* ── MAIN ── */
   .main {
     padding: 20px 20px 24px;
@@ -536,6 +590,17 @@
   </div>
 </div>
 
+<!-- DATE OVERRIDE -->
+<div class="date-override-wrap">
+  <div class="date-override-toggle" onclick="toggleDateOverride()">
+    <span class="date-override-label">Alag date ke liye record kar rahe hain?</span>
+    <span class="date-override-arrow" id="dateOverrideArrow">▶</span>
+  </div>
+  <div class="date-override-panel" id="dateOverridePanel">
+    <input class="date-override-input" type="date" id="dateOverrideInput">
+  </div>
+</div>
+
 <div class="main">
 
   <div class="record-section">
@@ -608,6 +673,27 @@
   const mm = String(now.getMonth() + 1).padStart(2, '0');
   const yyyy = now.getFullYear();
   document.getElementById('dateDisplay').textContent = `${dd}/${mm}/${yyyy}`;
+
+  // ─── DATE OVERRIDE ────────────────────────────────────────
+  // Pre-fill date override input with today
+  document.getElementById('dateOverrideInput').value =
+    `${yyyy}-${mm}-${dd}`;
+
+  function toggleDateOverride() {
+    const panel = document.getElementById('dateOverridePanel');
+    const arrow = document.getElementById('dateOverrideArrow');
+    const open  = panel.classList.toggle('open');
+    arrow.classList.toggle('open', open);
+  }
+
+  // Returns the selected date (from override picker, or today)
+  function getReportDate() {
+    const input = document.getElementById('dateOverrideInput');
+    if (input && input.value) {
+      return new Date(input.value + 'T00:00:00').toISOString();
+    }
+    return now.toISOString();
+  }
 
   // ─── MODE CONFIG ──────────────────────────────────────────
   const MODES = {
@@ -852,7 +938,8 @@
       form.append('mode', currentMode);
       form.append('project', projectName);
       form.append('audioPayload', JSON.stringify(audioPayload));
-      form.append('date', now.toISOString());
+      form.append('date', getReportDate());
+      form.append('noLog', 'true');  // Sheets logging deferred to Copy button
 
       const response = await fetch(APPS_SCRIPT_URL, {
         method: 'POST',
@@ -863,6 +950,8 @@
       const result = await response.json();
       if (result.success) {
         hideStatus();
+        _lastMode = currentMode;
+        _lastDate = getReportDate();
         showDPR(result.dpr);
       } else {
         throw new Error(result.error || 'Unknown error');
@@ -911,6 +1000,10 @@
     document.getElementById('dprSection').scrollIntoView({ behavior: 'smooth' });
   }
 
+  // Stores mode + date from the generation call for use at log time
+  let _lastMode    = 'daily';
+  let _lastDate    = null;
+
   function copyDPR() {
     const text = document.getElementById('dprOutput').innerText;
     navigator.clipboard.writeText(text).then(() => {
@@ -921,7 +1014,21 @@
         btn.textContent = 'Copy & Post to Group';
         btn.classList.remove('copied');
       }, 2500);
+
+      // ── Log the current (possibly edited) text to Sheets ──
+      logEditedDPR(text, _lastMode, _lastDate || getReportDate());
     });
+  }
+
+  // Fire-and-forget: sends edited text + mode to Apps Script for Sheets logging
+  function logEditedDPR(text, mode, dateISO) {
+    const form = new FormData();
+    form.append('action', 'logDPR');
+    form.append('mode', mode);
+    form.append('project', projectName);
+    form.append('date', dateISO);
+    form.append('dprText', text);
+    fetch(APPS_SCRIPT_URL, { method: 'POST', body: form, redirect: 'follow' }).catch(() => {});
   }
 
   // ─── ERROR ────────────────────────────────────────────────
