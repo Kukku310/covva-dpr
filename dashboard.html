@@ -821,11 +821,12 @@ async function loadProjectList() {
     if (!data.success || !data.projects) return;
     const sel = document.getElementById('projectSelector');
     sel.innerHTML = '<option value="">Select project...</option>';
+    const autoSelect = currentProject || (dashData && dashData.project) || '';
     data.projects.forEach(p => {
       const opt = document.createElement('option');
       opt.value = p;
       opt.textContent = p;
-      if (p === dashData.project) opt.selected = true;
+      if (p === autoSelect) opt.selected = true;
       sel.appendChild(opt);
     });
   } catch(e) { /* silently fail — project list is optional UI */ }
@@ -1415,7 +1416,7 @@ function buildDPRArchive(dprs) {
     entry.className = 'dpr-entry';
     entry.innerHTML = `
       <div class="dpr-entry-header" onclick="toggleDPREntry(${i})">
-        <span class="dpr-entry-date">${dpr.date || '—'}</span>
+        <span class="dpr-entry-date">${dpr.date ? new Date(dpr.date).toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'2-digit'}) : '—'}</span>
         <span class="dpr-entry-preview">${text.split('\n').filter(Boolean)[0] || '—'}</span>
         <span class="dpr-entry-arrow" id="dprArrow-${i}">▶</span>
       </div>
