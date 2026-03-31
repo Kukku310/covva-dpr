@@ -1,0 +1,1681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>COVVA — Site Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* ── CSS VARIABLES ── */
+:root {
+  --bg:      #f5f2ee;
+  --surface: #ffffff;
+  --panel:   #f0ece6;
+  --border:  #e0dbd3;
+  --amber:   #b8711f;
+  --amber-glow: rgba(184,113,31,0.12);
+  --amber-dim: #9a5a18;
+  --text:    #1a1714;
+  --dim:     #9a9188;
+  --mid:     #5c5148;
+  --green:   #1e8449;
+  --blue:    #1a6fa0;
+  --red:     #a93226;
+  --yellow:  #d4ac0d;
+  --grey:    #c8c0b8;
+  --purple:  #7d3c98;
+}
+body.dark {
+  --bg:      #0e0e0e;
+  --surface: #161616;
+  --panel:   #1e1e1e;
+  --border:  #2a2a2a;
+  --amber:   #d4872a;
+  --amber-glow: rgba(212,135,42,0.15);
+  --amber-dim: #8a5515;
+  --text:    #e8e2d9;
+  --dim:     #7a7268;
+  --mid:     #a89f94;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  min-height: 100vh;
+}
+
+/* ── HEADER ── */
+.header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 20px;
+  position: sticky;
+  top: 0;
+  z-index: 200;
+}
+.header-row1 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+.logo {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 26px;
+  letter-spacing: 3px;
+  color: var(--amber);
+  line-height: 1;
+}
+.logo-sep { color: var(--border); font-size: 18px; }
+.project-name {
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  color: var(--mid);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  flex: 1;
+}
+.header-row2 {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--dim);
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+}
+.header-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.header-select {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  padding: 5px 8px;
+  cursor: pointer;
+  outline: none;
+  flex: 1;
+  min-width: 140px;
+}
+.header-select:focus { border-color: var(--amber); }
+.hdr-btn {
+  background: var(--panel);
+  color: var(--dim);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.hdr-btn:hover { border-color: var(--amber); color: var(--amber); }
+.hdr-btn.active { background: var(--amber); color: var(--bg); border-color: var(--amber); }
+
+/* ── PDF EXPORT BAR ── */
+.pdf-bar {
+  background: rgba(184,113,31,0.08);
+  border-bottom: 1px solid var(--border);
+  padding: 7px 20px;
+  display: none;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.pdf-bar.visible { display: flex; }
+.pdf-bar-text {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--amber);
+  flex: 1;
+}
+.export-btn {
+  background: none;
+  border: 1px solid var(--amber);
+  color: var(--amber);
+  border-radius: 4px;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.export-btn:hover { background: var(--amber); color: var(--bg); }
+
+/* ── MAIN ── */
+.main { padding: 20px; max-width: 960px; margin: 0 auto; }
+
+/* ── SECTION TITLE ── */
+.section-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 18px;
+  letter-spacing: 2px;
+  color: var(--text);
+  margin-bottom: 12px;
+  margin-top: 28px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.section-title:first-child { margin-top: 0; }
+.section-num {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--amber);
+  border: 1px solid var(--amber);
+  border-radius: 50%;
+  width: 20px; height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.internal-only {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--dim);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  letter-spacing: 0.3px;
+}
+
+/* ── LOADING ── */
+.loading-state {
+  padding: 40px;
+  text-align: center;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--dim);
+  letter-spacing: 1px;
+}
+.loading-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--amber);
+  animation: blink 1s ease infinite;
+  margin-right: 8px;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+/* ── GANTT ── */
+.gantt-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.gantt-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+/* Hybrid Gantt layout */
+.g-container { display: inline-block; min-width: 100%; user-select: none; }
+.g-axis-row { display: flex; align-items: flex-end; height: 28px; }
+.g-axis-label-spacer { flex-shrink: 0; }
+.g-axis-ticks { position: relative; flex-shrink: 0; overflow: visible; }
+.g-axis-ticks span {
+  position: absolute;
+  bottom: 6px;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  transform: translateX(3px);
+  pointer-events: none;
+}
+.g-row { display: flex; align-items: center; height: 36px; cursor: pointer; }
+.g-row:hover .g-label { color: var(--amber); }
+.g-label {
+  flex-shrink: 0;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text);
+  text-align: right;
+  padding-right: 12px;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.g-track { display: block; flex-shrink: 0; }
+.g-today-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--amber);
+  padding: 4px 0;
+  display: flex;
+}
+
+/* ── GANTT LEGEND ── */
+.gantt-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--dim);
+}
+.legend-dot {
+  width: 10px; height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* ── GANTT DETAIL PANEL ── */
+.gantt-detail {
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+  padding: 16px;
+  display: none;
+}
+.gantt-detail.visible { display: block; }
+.detail-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 16px;
+  letter-spacing: 1.5px;
+  color: var(--text);
+  margin-bottom: 10px;
+}
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.detail-cell-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--dim);
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+.detail-cell-value {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--text);
+}
+.change-log-title {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--dim);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  margin-top: 12px;
+}
+.change-entry {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  margin-bottom: 4px;
+  line-height: 1.5;
+}
+.change-entry.delay { background: rgba(169,50,38,0.1); color: #c0392b; }
+.change-entry.work-increase { background: rgba(125,60,152,0.1); color: #8e44ad; }
+.change-entry.start-delayed { background: rgba(26,111,160,0.1); color: #2980b9; }
+
+/* ── STRENGTH ── */
+.strength-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.strength-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.strength-tab {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  padding: 5px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--dim);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.strength-tab.active { background: var(--amber-glow); color: var(--amber); border-color: var(--amber-dim); }
+.strength-total {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 36px;
+  color: var(--amber);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.strength-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--dim);
+  letter-spacing: 1px;
+  margin-bottom: 16px;
+}
+.trade-bar-row {
+  margin-bottom: 8px;
+}
+.trade-bar-label {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--mid);
+  margin-bottom: 3px;
+}
+.trade-bar-track {
+  height: 6px;
+  background: var(--panel);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.trade-bar-fill {
+  height: 100%;
+  background: var(--amber);
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+/* ── MATERIAL TABLE ── */
+.material-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.material-intro {
+  padding: 10px 16px;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--dim);
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+.material-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.material-row:last-child { border-bottom: none; }
+.material-name {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  flex: 1;
+  min-width: 160px;
+}
+.material-area {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--dim);
+  margin-top: 2px;
+}
+.material-meta {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--dim);
+  line-height: 1.6;
+  flex: 2;
+  min-width: 160px;
+}
+.status-badge {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  padding: 3px 7px;
+  border-radius: 3px;
+  border: 1px solid;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.badge-red    { color: #c0392b; border-color: rgba(192,57,43,0.4); background: rgba(192,57,43,0.08); }
+.badge-amber  { color: var(--amber); border-color: rgba(184,113,31,0.4); background: var(--amber-glow); }
+.badge-blue   { color: #2980b9; border-color: rgba(41,128,185,0.4); background: rgba(41,128,185,0.08); }
+.badge-green  { color: #1e8449; border-color: rgba(30,132,73,0.4); background: rgba(30,132,73,0.08); }
+
+/* ── DPR ARCHIVE ── */
+.dpr-archive {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.dpr-entry {
+  border-bottom: 1px solid var(--border);
+}
+.dpr-entry:last-child { border-bottom: none; }
+.dpr-entry-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.dpr-entry-header:hover { background: var(--panel); }
+.dpr-entry-date {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--amber);
+  min-width: 80px;
+}
+.dpr-entry-preview {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--dim);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dpr-entry-arrow {
+  font-size: 10px;
+  color: var(--dim);
+  transition: transform 0.2s;
+}
+.dpr-entry-arrow.open { transform: rotate(90deg); }
+.dpr-entry-body {
+  display: none;
+  padding: 0 16px 16px;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--text);
+  white-space: pre-wrap;
+  line-height: 1.7;
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+}
+.dpr-entry-body.open { display: block; }
+
+/* ── FLAGS ── */
+.flags-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.flag-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.flag-row:last-child { border-bottom: none; }
+.flag-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+.flag-content { flex: 1; min-width: 0; }
+.flag-title {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+.flag-detail {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--dim);
+  line-height: 1.5;
+}
+.flag-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.flag-btn {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--dim);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.flag-btn:hover { border-color: var(--amber); color: var(--amber); }
+
+/* ── EMPTY STATE ── */
+.empty-state {
+  padding: 24px;
+  text-align: center;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--dim);
+}
+
+/* ── STRENGTH CHART ── */
+.strength-chart-container { overflow-x: auto; }
+
+/* ── PDF MODAL ── */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 1000;
+  overflow-y: auto;
+  padding: 20px;
+}
+.modal-overlay.visible { display: flex; align-items: flex-start; justify-content: center; }
+.modal-box {
+  background: #ffffff;
+  color: #1a1714;
+  border-radius: 6px;
+  max-width: 760px;
+  width: 100%;
+  padding: 30px;
+  margin: auto;
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #b8711f;
+}
+.modal-logo {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 28px;
+  letter-spacing: 3px;
+  color: #b8711f;
+  line-height: 1;
+}
+.modal-sub {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: #9a9188;
+  letter-spacing: 1px;
+  margin-top: 2px;
+}
+.modal-project-info {
+  text-align: right;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: #5c5148;
+  line-height: 1.6;
+}
+.modal-section-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 14px;
+  letter-spacing: 1.5px;
+  color: #1a1714;
+  margin: 16px 0 8px;
+}
+.modal-footer {
+  margin-top: 20px;
+  padding-top: 12px;
+  border-top: 1px solid #e0dbd3;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: #9a9188;
+  text-align: center;
+}
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+.modal-btn {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 15px;
+  letter-spacing: 1.5px;
+  padding: 8px 18px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.modal-btn-print { background: #b8711f; color: #fff; }
+.modal-btn-print:hover { background: #9a5a18; }
+.modal-btn-close { background: #f0ece6; color: #5c5148; border: 1px solid #e0dbd3; }
+.modal-btn-close:hover { border-color: #b8711f; color: #b8711f; }
+
+@media print {
+  @page { margin: 0; }
+  body { margin: 1.5cm; }
+  .modal-actions { display: none !important; }
+  .modal-overlay { position: static; background: none; padding: 0; }
+  body > *:not(.modal-overlay) { display: none !important; }
+  .modal-overlay.visible { display: block; }
+  .modal-box { box-shadow: none; }
+}
+
+.footer {
+  padding: 20px;
+  text-align: center;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--dim);
+  letter-spacing: 1px;
+  border-top: 1px solid var(--border);
+  margin-top: 30px;
+}
+
+/* ── STRENGTH LINE CHART (canvas-based) ── */
+.canvas-chart { width: 100%; max-height: 220px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-row1">
+    <div class="logo">COVVA</div>
+    <div class="logo-sep">|</div>
+    <div class="project-name" id="projectDisplay">Loading...</div>
+  </div>
+  <div class="header-row2" id="headerMeta">—</div>
+  <div class="header-controls">
+    <select class="header-select" id="projectSelector" onchange="switchProject(this.value)">
+      <option value="">Select project...</option>
+    </select>
+    <button class="hdr-btn" id="darkBtn" onclick="toggleTheme()">Dark Mode</button>
+    <button class="hdr-btn" id="clientBtn" onclick="toggleClientView()">Client View</button>
+  </div>
+</div>
+
+<div class="pdf-bar" id="pdfBar">
+  <span class="pdf-bar-text">Client View — showing public data only</span>
+  <button class="export-btn" onclick="openPDFModal()">⬇ Export PDF</button>
+</div>
+
+<div class="main" id="mainContent">
+  <div class="loading-state" id="loadingState">
+    <span class="loading-dot"></span> Loading project data...
+  </div>
+</div>
+
+<!-- PDF MODAL -->
+<div class="modal-overlay" id="pdfModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div>
+        <div class="modal-logo">COVVA</div>
+        <div class="modal-sub">SITE INTELLIGENCE</div>
+      </div>
+      <div class="modal-project-info" id="pdfModalMeta"></div>
+    </div>
+    <div class="modal-section-title">Project Timeline</div>
+    <div style="overflow-x:auto;margin-bottom:4px">
+      <div id="pdfGanttVisual"></div>
+    </div>
+    <div id="pdfGanttContainer"></div>
+    <div class="modal-section-title">Pending Client Actions</div>
+    <div id="pdfMaterialsContainer"></div>
+    <div class="modal-footer" id="pdfFooter"></div>
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-close" onclick="closePDFModal()">Close Preview</button>
+      <button class="modal-btn modal-btn-print" onclick="window.print()">Print / Save as PDF</button>
+    </div>
+  </div>
+</div>
+
+<div class="footer">COVVA SITE INTELLIGENCE</div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────────
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzcUokFn0MTGieOsC2a6r-HP883YPwBNLXPZB9MhBZaW4NI5cGF062K5k1AKT3feQWB/exec';
+
+// ─── STATE ────────────────────────────────────────────────────
+const params = new URLSearchParams(window.location.search);
+let currentProject = params.get('project') || '';
+let isClientView   = false;
+let dashData       = null;
+
+// ─── THEME ────────────────────────────────────────────────────
+function applyTheme(isDark) {
+  document.body.classList.toggle('dark', isDark);
+  document.getElementById('darkBtn').textContent = isDark ? 'Light Mode' : 'Dark Mode';
+  try { localStorage.setItem('covva-dash-theme', isDark ? 'dark' : 'light'); } catch(e) {}
+  // Re-render dashboard so hybrid Gantt canvas bars rebuild with correct dark/light colours
+  if (dashData) renderDashboard();
+}
+function toggleTheme() { applyTheme(!document.body.classList.contains('dark')); }
+(function(){
+  try {
+    const saved = localStorage.getItem('covva-dash-theme');
+    applyTheme(saved === 'dark');
+  } catch(e) { applyTheme(false); }
+})();
+
+// ─── CLIENT VIEW ──────────────────────────────────────────────
+function toggleClientView() {
+  isClientView = !isClientView;
+  document.getElementById('clientBtn').classList.toggle('active', isClientView);
+  document.getElementById('pdfBar').classList.toggle('visible', isClientView);
+  renderDashboard();
+}
+
+// ─── PROJECT SWITCH ───────────────────────────────────────────
+function switchProject(name) {
+  if (!name) return;
+  currentProject = name;
+  const url = new URL(window.location);
+  url.searchParams.set('project', name);
+  window.history.replaceState({}, '', url);
+  loadDashboard();
+}
+
+// ─── LOAD DATA ────────────────────────────────────────────────
+async function loadDashboard() {
+  if (!currentProject) {
+    document.getElementById('mainContent').innerHTML =
+      '<div class="loading-state">Select a project above.</div>';
+    return;
+  }
+
+  document.getElementById('mainContent').innerHTML =
+    '<div class="loading-state"><span class="loading-dot"></span> Loading project data...</div>';
+
+  try {
+    const url = `${APPS_SCRIPT_URL}?action=dashboardData&project=${encodeURIComponent(currentProject)}`;
+    const resp = await fetch(url, { redirect: 'follow' });
+    const data = await resp.json();
+    if (!data.success) throw new Error(data.error || 'Load failed');
+
+    dashData = data;
+    await loadProjectList();
+    // Wait for Google Fonts to load before rendering SVG Gantt text
+    await document.fonts.ready;
+    renderDashboard();
+  } catch(err) {
+    document.getElementById('mainContent').innerHTML =
+      `<div class="loading-state">Error loading data: ${err.message}</div>`;
+  }
+}
+
+async function loadProjectList() {
+  try {
+    const url = `${APPS_SCRIPT_URL}?action=projectList`;
+    const resp = await fetch(url, { redirect: 'follow' });
+    const data = await resp.json();
+    if (!data.success || !data.projects) return;
+    const sel = document.getElementById('projectSelector');
+    sel.innerHTML = '<option value="">Select project...</option>';
+    data.projects.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p;
+      opt.textContent = p;
+      if (p === dashData.project) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  } catch(e) { /* silently fail — project list is optional UI */ }
+}
+
+// ─── RENDER DASHBOARD ─────────────────────────────────────────
+function renderDashboard() {
+  if (!dashData) return;
+
+  const d = dashData;
+  const pName = d.project || currentProject;
+
+  // Header
+  document.getElementById('projectDisplay').textContent = pName.toUpperCase();
+
+  // Compute date range + day count from activities
+  const allDates = (d.activities || []).flatMap(a => [a.planned_start, a.planned_end, a.current_end]).filter(Boolean).map(s => new Date(s)).filter(x => !isNaN(x));
+  const startDate = allDates.length ? new Date(Math.min(...allDates)) : null;
+  const endDate   = allDates.length ? new Date(Math.max(...allDates)) : null;
+  const today     = new Date();
+
+  let metaText = '—';
+  if (startDate && endDate) {
+    const dayX = Math.round((today - startDate) / 86400000) + 1;
+    const dayY = Math.round((endDate - startDate) / 86400000) + 1;
+    metaText = `${fmtDateShort(startDate)} — ${fmtDateShort(endDate)}  ·  Day ${dayX} of ${dayY}`;
+  }
+  document.getElementById('headerMeta').textContent = metaText;
+
+  const main = document.getElementById('mainContent');
+  main.innerHTML = '';
+
+  // ── Section 1: Timeline ──
+  main.appendChild(buildSectionTitle('①', 'Project Timeline'));
+  main.appendChild(buildGantt(d.activities || [], d.dprs || [], today, startDate, endDate));
+
+  // ── Section 2: Site Strength (internal) ──
+  if (!isClientView) {
+    main.appendChild(buildSectionTitle('②', 'Site Strength', true));
+    main.appendChild(buildStrengthSection(d.dprs || []));
+  }
+
+  // ── Section 3: Client Materials ──
+  main.appendChild(buildSectionTitle('③', 'Client Material — Inform & Track'));
+  main.appendChild(buildMaterialsSection(d.materials || []));
+
+  // ── Section 4: DPR Archive (internal) ──
+  if (!isClientView) {
+    main.appendChild(buildSectionTitle('④', 'DPR Archive', true));
+    main.appendChild(buildDPRArchive(d.dprs || []));
+  }
+
+  // ── Section 5: Flags (internal) ──
+  if (!isClientView) {
+    main.appendChild(buildSectionTitle('⑤', 'Flags & Actions', true));
+    main.appendChild(buildFlags(d.activities || [], d.materials || [], today));
+  }
+}
+
+// ─── SECTION TITLE ────────────────────────────────────────────
+function buildSectionTitle(num, label, internalOnly) {
+  const div = document.createElement('div');
+  div.className = 'section-title';
+  div.innerHTML = `<span class="section-num">${num}</span> ${label}`;
+  if (internalOnly) {
+    const badge = document.createElement('span');
+    badge.className = 'internal-only';
+    badge.textContent = 'INTERNAL';
+    div.appendChild(badge);
+  }
+  return div;
+}
+
+// ─── GANTT (HYBRID HTML LABELS + CANVAS BARS) ─────────────────
+function buildGantt(activities, dprs, today, startDate, endDate) {
+  const wrap = document.createElement('div');
+  wrap.className = 'gantt-wrap';
+
+  if (!activities.length) {
+    wrap.innerHTML = '<div class="empty-state">No activities set up yet.</div>';
+    return wrap;
+  }
+
+  // Compute chart bounds
+  const allDates = activities.flatMap(a => [a.planned_start, a.planned_end, a.current_end, a.planned_end_original].filter(Boolean)).map(s => new Date(s)).filter(x => !isNaN(x));
+  if (!allDates.length) { wrap.innerHTML = '<div class="empty-state">No date data in activities.</div>'; return wrap; }
+
+  const minD = new Date(Math.min(...allDates, today));
+  const maxD = new Date(Math.max(...allDates, today));
+  minD.setDate(1);
+  maxD.setMonth(maxD.getMonth() + 1); maxD.setDate(1);
+
+  const ROW_H      = 36;
+  const LABEL_W    = 170;
+  const PX_PER_DAY = 6;
+  const totalDays  = Math.ceil((maxD - minD) / 86400000);
+  const chartW     = totalDays * PX_PER_DAY;
+
+  const isDark  = document.body.classList.contains('dark');
+  const gridC   = isDark ? '#2a2a2a' : '#e0dbd3';
+  const amberC  = isDark ? '#d4872a' : '#b8711f';
+  const colorMap = {
+    completed:      '#1e8449',
+    on_track:       '#1a6fa0',
+    on_track_delayed: '#d4ac0d',
+    delayed_heavy:  '#a93226',
+    not_started:    isDark ? '#3a3530' : '#c8c0b8',
+  };
+
+  function dayX(d) {
+    return Math.round((new Date(d) - minD) / 86400000) * PX_PER_DAY;
+  }
+
+  // ── SCROLL WRAPPER ──
+  const scrollDiv = document.createElement('div');
+  scrollDiv.className = 'gantt-scroll';
+
+  const container = document.createElement('div');
+  container.className = 'g-container';
+
+  // ── AXIS ROW (HTML spans — full CSS font rendering) ──
+  const axisRow = document.createElement('div');
+  axisRow.className = 'g-axis-row';
+
+  const axSpacer = document.createElement('div');
+  axSpacer.className = 'g-axis-label-spacer';
+  axSpacer.style.width = LABEL_W + 'px';
+  axisRow.appendChild(axSpacer);
+
+  const axTicks = document.createElement('div');
+  axTicks.className = 'g-axis-ticks';
+  axTicks.style.width  = chartW + 'px';
+  axTicks.style.height = '28px';
+
+  let prevLabelX = -999;
+  let prevYear   = null;
+  const cur = new Date(minD);
+  while (cur <= maxD) {
+    const x = Math.round((cur - minD) / 86400000) * PX_PER_DAY;
+    if (x - prevLabelX > 50) {
+      const month = cur.toLocaleDateString('en-GB', { month: 'short' });
+      const year  = cur.getFullYear().toString().slice(2);
+      const showYear = (prevYear !== cur.getFullYear());
+      prevYear = cur.getFullYear();
+
+      const sp = document.createElement('span');
+      sp.style.left = x + 'px';
+      sp.textContent = showYear ? `${month} '${year}` : month;
+      axTicks.appendChild(sp);
+      prevLabelX = x;
+    }
+    cur.setMonth(cur.getMonth() + 1);
+  }
+  axisRow.appendChild(axTicks);
+  container.appendChild(axisRow);
+
+  // Today X position
+  const todayX = dayX(today);
+
+  // ── ACTIVITY ROWS ──
+  activities.forEach((act, i) => {
+    const row = document.createElement('div');
+    row.className = 'g-row';
+    row.addEventListener('click', () => openGanttDetail(act, dprs));
+
+    // HTML label — pure CSS, zero canvas text
+    const label = document.createElement('div');
+    label.className = 'g-label';
+    label.style.width = LABEL_W + 'px';
+    label.textContent = act.activity || act.name || '';
+    row.appendChild(label);
+
+    // Canvas track — bars only, no text
+    const track = document.createElement('canvas');
+    track.className = 'g-track';
+    track.width  = chartW;
+    track.height = ROW_H;
+    const ctx = track.getContext('2d');
+
+    // Row background
+    ctx.fillStyle = i % 2 === 0
+      ? (isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)')
+      : 'transparent';
+    ctx.fillRect(0, 0, chartW, ROW_H);
+
+    // Vertical grid lines for month starts
+    const cm2 = new Date(minD);
+    while (cm2 <= maxD) {
+      const gx = Math.round((cm2 - minD) / 86400000) * PX_PER_DAY;
+      ctx.strokeStyle = gridC; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, ROW_H); ctx.stroke();
+      cm2.setMonth(cm2.getMonth() + 1);
+    }
+
+    // Bar colour
+    let barColor = colorMap.not_started;
+    const status   = (act.status || '').toLowerCase();
+    const slipDays = Number(act.total_slippage_days) || 0;
+    if      (status === 'completed')                               barColor = colorMap.completed;
+    else if (status === 'on_track' || status === 'in_progress')    barColor = colorMap.on_track;
+    else if (status === 'delayed' && slipDays <= 7)                barColor = colorMap.on_track_delayed;
+    else if (status === 'delayed' && slipDays > 7)                 barColor = colorMap.delayed_heavy;
+
+    if (act.planned_start && (act.current_end || act.planned_end)) {
+      const x1  = dayX(act.planned_start);
+      const xPE = dayX(act.planned_end || act.current_end);
+      const xCE = dayX(act.current_end || act.planned_end);
+      const barH = ROW_H - 16;
+      const barY = 8;
+
+      // Main bar (to planned_end)
+      if (xPE > x1) {
+        ctx.fillStyle = barColor;
+        ctx.beginPath();
+        ctx.roundRect(x1, barY, Math.max(xPE - x1, 4), barH, 3);
+        ctx.fill();
+      }
+
+      // Work increase extension (current_end > planned_end)
+      if (act.planned_end && act.current_end && new Date(act.current_end) > new Date(act.planned_end)) {
+        ctx.fillStyle = '#7d3c98';
+        ctx.globalAlpha = 0.8;
+        ctx.beginPath();
+        ctx.roundRect(xPE, barY, Math.max(xCE - xPE, 4), barH, 3);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+
+      // Planned end tick
+      if (act.planned_end && act.planned_end !== act.current_end) {
+        ctx.strokeStyle = isDark ? '#555' : '#bbb';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([2, 2]);
+        ctx.beginPath(); ctx.moveTo(xPE, 4); ctx.lineTo(xPE, ROW_H - 5); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+
+    // Today line (amber)
+    ctx.strokeStyle = amberC; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(todayX, 0); ctx.lineTo(todayX, ROW_H); ctx.stroke();
+
+    row.appendChild(track);
+    container.appendChild(row);
+  });
+
+  // ── TODAY DATE LABEL (HTML, below last row) ──
+  const todayLabelRow = document.createElement('div');
+  todayLabelRow.className = 'g-today-label';
+
+  const todaySpacer = document.createElement('div');
+  todaySpacer.style.cssText = `width:${LABEL_W}px;flex-shrink:0`;
+  todayLabelRow.appendChild(todaySpacer);
+
+  const todaySpan = document.createElement('span');
+  const dd  = String(today.getDate()).padStart(2, '0');
+  const mon = today.toLocaleDateString('en-GB', { month: 'short' });
+  const yr  = today.getFullYear().toString().slice(2);
+  todaySpan.style.cssText = `position:relative;left:${todayX + 4}px;color:${amberC}`;
+  todaySpan.textContent = `${dd} ${mon} '${yr}`;
+  todayLabelRow.appendChild(todaySpan);
+  container.appendChild(todayLabelRow);
+
+  scrollDiv.appendChild(container);
+  wrap.appendChild(scrollDiv);
+
+  // Legend
+  const legend = document.createElement('div');
+  legend.className = 'gantt-legend';
+  const legendItems = [
+    { color: '#1e8449', label: 'Completed' },
+    { color: '#1a6fa0', label: 'On Track' },
+    { color: '#d4ac0d', label: 'Delayed ≤7d' },
+    { color: '#a93226', label: 'Delayed >7d' },
+    { color: '#c8c0b8', label: 'Not Started' },
+    { color: '#7d3c98', label: 'Work Increase' },
+  ];
+  legendItems.forEach(({ color, label }) => {
+    const item = document.createElement('div');
+    item.className = 'legend-item';
+    item.innerHTML = `<span class="legend-dot" style="background:${color}"></span><span>${label}</span>`;
+    legend.appendChild(item);
+  });
+  wrap.appendChild(legend);
+
+  // Detail panel
+  const detailPanel = document.createElement('div');
+  detailPanel.className = 'gantt-detail';
+  detailPanel.id = 'ganttDetail';
+  wrap.appendChild(detailPanel);
+
+  return wrap;
+}
+
+function openGanttDetail(act, dprs) {
+  const panel = document.getElementById('ganttDetail');
+  if (!panel) return;
+  panel.classList.add('visible');
+
+  const actName = act.activity || act.name || '';
+  const slipDays = Number(act.total_slippage_days) || 0;
+
+  let html = `<div class="detail-title">${actName}</div>`;
+  html += `<div class="detail-grid">`;
+  html += detailCell('Planned Start', act.planned_start || '—');
+  html += detailCell('Planned End', act.planned_end || '—');
+  html += detailCell('Current End', act.current_end || '—');
+  html += detailCell('Status', (act.status || '—').replace(/_/g,' ').toUpperCase());
+  html += detailCell('Total Slippage', slipDays ? `${slipDays} days` : '0 days');
+  html += `</div>`;
+
+  if (!isClientView) {
+    // Change log
+    if (act.delay_log) {
+      html += `<div class="change-log-title">Change Log</div>`;
+      const entries = act.delay_log.split('\n').filter(Boolean);
+      entries.forEach(entry => {
+        const cls = entry.includes('WORK INCREASE') ? 'work-increase' : entry.includes('START DELAYED') ? 'start-delayed' : 'delay';
+        html += `<div class="change-entry ${cls}">${entry}</div>`;
+      });
+    }
+
+    // DPR mentions
+    const mentions = (dprs || []).filter(dpr => {
+      const text = (dpr.report || dpr.formatted_report || '').toLowerCase();
+      return text.includes(actName.toLowerCase().split(' ')[0]);
+    });
+    if (mentions.length) {
+      html += `<div class="change-log-title">Mentions in DPRs</div>`;
+      mentions.slice(0, 5).forEach(dpr => {
+        html += `<div class="change-entry delay" style="background:transparent;border:1px solid var(--border);color:var(--dim)"><strong style="color:var(--amber)">${dpr.date || ''}</strong> — ${(dpr.report || dpr.formatted_report || '').substring(0, 100)}...</div>`;
+      });
+    }
+  }
+
+  panel.innerHTML = html;
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function detailCell(label, value) {
+  return `<div><div class="detail-cell-label">${label}</div><div class="detail-cell-value">${value}</div></div>`;
+}
+
+// ─── STRENGTH SECTION ─────────────────────────────────────────
+function buildStrengthSection(dprs) {
+  const card = document.createElement('div');
+  card.className = 'strength-card';
+
+  // Toggle
+  const toggle = document.createElement('div');
+  toggle.className = 'strength-toggle';
+  toggle.innerHTML = `
+    <button class="strength-tab active" id="strTab-today" onclick="switchStrengthView('today')">Today</button>
+    <button class="strength-tab" id="strTab-overtime" onclick="switchStrengthView('overtime')">Over Time</button>
+  `;
+  card.appendChild(toggle);
+
+  const todayView = document.createElement('div');
+  todayView.id = 'strView-today';
+  todayView.innerHTML = buildStrengthToday(dprs);
+  card.appendChild(todayView);
+
+  const overtimeView = document.createElement('div');
+  overtimeView.id = 'strView-overtime';
+  overtimeView.style.display = 'none';
+  overtimeView.appendChild(buildStrengthChart(dprs));
+  card.appendChild(overtimeView);
+
+  return card;
+}
+
+window.switchStrengthView = function(view) {
+  ['today','overtime'].forEach(v => {
+    document.getElementById(`strView-${v}`).style.display = v === view ? 'block' : 'none';
+    document.getElementById(`strTab-${v}`).classList.toggle('active', v === view);
+  });
+};
+
+function buildStrengthToday(dprs) {
+  if (!dprs.length) return '<div class="empty-state">No DPR data.</div>';
+
+  // Get most recent DPR
+  const sorted = [...dprs].sort((a,b) => new Date(b.date) - new Date(a.date));
+  const latest = sorted[0];
+  const reportText = latest.report || latest.formatted_report || '';
+  const tradeData  = parseTradesFromDPR(reportText);
+
+  if (!tradeData.total) return `<div class="empty-state">No site strength data in latest DPR (${latest.date}).</div>`;
+
+  let html = `<div class="strength-total">${tradeData.total}</div>`;
+  html += `<div class="strength-label">TOTAL ON SITE — LAST REPORTED: ${latest.date}</div>`;
+
+  tradeData.trades.forEach(t => {
+    const pct = tradeData.total > 0 ? (t.count / tradeData.total) * 100 : 0;
+    html += `
+      <div class="trade-bar-row">
+        <div class="trade-bar-label"><span>${t.name}</span><span>${t.count}</span></div>
+        <div class="trade-bar-track"><div class="trade-bar-fill" style="width:${pct.toFixed(1)}%"></div></div>
+      </div>`;
+  });
+
+  return html;
+}
+
+function parseTradesFromDPR(text) {
+  // Extract 👷 Site Strength block
+  const match = text.match(/👷 Site Strength[:\s]*([\d]+)(.*?)(?=✅|🔄|⚠️|📅|$)/s);
+  if (!match) return { total: 0, trades: [] };
+  const total = parseInt(match[1]) || 0;
+  const block = match[2] || '';
+  const trades = [];
+  const lines = block.split('\n');
+  lines.forEach(line => {
+    const m = line.match(/•\s*([^:]+):\s*(\d+)/);
+    if (m) trades.push({ name: m[1].trim(), count: parseInt(m[2]) });
+  });
+  return { total, trades };
+}
+
+function buildStrengthChart(dprs) {
+  if (!dprs.length) return Object.assign(document.createElement('div'), { className: 'empty-state', textContent: 'No DPR data.' });
+
+  const canvas = document.createElement('canvas');
+  canvas.className = 'canvas-chart';
+  canvas.height = 200;
+
+  // Collect trade data over time
+  const timelineData = {};
+  const allTrades = new Set();
+  const dates = [];
+
+  dprs.slice(-20).forEach(dpr => {
+    const td = parseTradesFromDPR(dpr.report || dpr.formatted_report || '');
+    if (!td.total) return;
+    dates.push(dpr.date);
+    td.trades.forEach(t => {
+      allTrades.add(t.name);
+      if (!timelineData[t.name]) timelineData[t.name] = {};
+      timelineData[t.name][dpr.date] = t.count;
+    });
+  });
+
+  if (!dates.length) return Object.assign(document.createElement('div'), { className: 'empty-state', textContent: 'No trade data found in DPRs.' });
+
+  const tradeColors = ['#d4872a','#1a6fa0','#1e8449','#7d3c98','#a93226','#d4ac0d','#5d6d7e'];
+  const trades = [...allTrades];
+
+  requestAnimationFrame(() => {
+    const W = canvas.parentElement ? canvas.parentElement.clientWidth || 600 : 600;
+    canvas.width = W;
+    const ctx = canvas.getContext('2d');
+    const padL = 30, padR = 10, padT = 10, padB = 50;
+    const cW = W - padL - padR;
+    const cH = 200 - padT - padB;
+
+    const maxVal = Math.max(...trades.flatMap(t => dates.map(d => timelineData[t]?.[d] || 0)));
+    const isDark = document.body.classList.contains('dark');
+    const gridColor = isDark ? '#2a2a2a' : '#e0dbd3';
+    const textColor = isDark ? '#7a7268' : '#9a9188';
+
+    ctx.clearRect(0, 0, W, 200);
+
+    // Grid + Y axis
+    for (let v = 0; v <= maxVal; v += Math.ceil(maxVal / 4)) {
+      const y = padT + cH - (v / maxVal) * cH;
+      ctx.strokeStyle = gridColor; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + cW, y); ctx.stroke();
+      ctx.fillStyle = textColor; ctx.font = '10px DM Mono,monospace';
+      ctx.fillText(v, 2, y + 4);
+    }
+
+    // Lines per trade
+    trades.forEach((trade, ti) => {
+      const color = tradeColors[ti % tradeColors.length];
+      ctx.strokeStyle = color; ctx.lineWidth = 2;
+      ctx.beginPath();
+      dates.forEach((d, di) => {
+        const x = padL + (di / (dates.length - 1 || 1)) * cW;
+        const val = timelineData[trade]?.[d] || 0;
+        const y = padT + cH - (maxVal ? (val / maxVal) * cH : 0);
+        di === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+
+      // Dots
+      dates.forEach((d, di) => {
+        const x = padL + (di / (dates.length - 1 || 1)) * cW;
+        const val = timelineData[trade]?.[d] || 0;
+        const y = padT + cH - (maxVal ? (val / maxVal) * cH : 0);
+        ctx.fillStyle = color;
+        ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
+      });
+    });
+
+    // X axis dates
+    dates.forEach((d, di) => {
+      const x = padL + (di / (dates.length - 1 || 1)) * cW;
+      ctx.save(); ctx.translate(x, padT + cH + 10); ctx.rotate(-Math.PI / 4);
+      ctx.fillStyle = textColor; ctx.font = '9px DM Mono,monospace';
+      ctx.fillText(String(d).substring(0, 8), 0, 0);
+      ctx.restore();
+    });
+  });
+
+  return canvas;
+}
+
+// ─── MATERIALS SECTION ────────────────────────────────────────
+function buildMaterialsSection(materials) {
+  const wrap = document.createElement('div');
+  wrap.className = 'material-section';
+
+  if (!isClientView) {
+    const intro = document.createElement('div');
+    intro.className = 'material-intro';
+    intro.textContent = 'Client-procured materials only. Delivered items hidden in client view.';
+    wrap.appendChild(intro);
+  }
+
+  const filtered = isClientView
+    ? materials.filter(m => !['received'].includes((m.status || m.condition || '').toLowerCase()))
+    : materials;
+
+  if (!filtered.length) {
+    wrap.innerHTML += '<div class="empty-state">No material entries yet.</div>';
+    return wrap;
+  }
+
+  filtered.forEach(m => {
+    const row = document.createElement('div');
+    row.className = 'material-row';
+
+    const nameDiv = document.createElement('div');
+    const statusStr = getMatStatus(m);
+    nameDiv.innerHTML = `<div class="material-name">${m.material || m.name || '—'}</div><div class="material-area">${m.area || ''}</div>`;
+
+    const metaDiv = document.createElement('div');
+    metaDiv.className = 'material-meta';
+    let metaHtml = '';
+    if (m.inform_date) metaHtml += `Informed: ${m.inform_date}<br>`;
+    if (m.target_date) {
+      const overdue = new Date(m.target_date) < new Date();
+      metaHtml += `Target: <span style="${overdue ? 'color:var(--red)' : ''}">${m.target_date}</span><br>`;
+    }
+    if (m.notes) metaHtml += m.notes;
+    metaDiv.innerHTML = metaHtml || '—';
+
+    const badge = document.createElement('span');
+    badge.className = `status-badge ${statusStr.cls}`;
+    badge.textContent = statusStr.label;
+
+    row.appendChild(nameDiv);
+    row.appendChild(metaDiv);
+    row.appendChild(badge);
+    wrap.appendChild(row);
+  });
+
+  return wrap;
+}
+
+function getMatStatus(m) {
+  const s = (m.status || m.condition || '').toLowerCase();
+  if (s.includes('not') && s.includes('inform')) return { label: 'NOT YET INFORMED', cls: 'badge-red' };
+  if (s.includes('client') || s.includes('actioning')) return { label: 'CLIENT ACTIONING', cls: 'badge-amber' };
+  if (s.includes('partial')) return { label: 'PARTIAL DELIVERY', cls: 'badge-amber' };
+  if (s.includes('overdue')) return { label: 'TARGET OVERDUE', cls: 'badge-red' };
+  if (s.includes('ordered')) return { label: 'ORDERED', cls: 'badge-blue' };
+  if (s.includes('received') || s.includes('good')) return { label: 'RECEIVED', cls: 'badge-green' };
+  if (s.includes('damaged')) return { label: 'DAMAGED', cls: 'badge-red' };
+  return { label: s.toUpperCase() || 'UNKNOWN', cls: 'badge-amber' };
+}
+
+// ─── DPR ARCHIVE ──────────────────────────────────────────────
+function buildDPRArchive(dprs) {
+  const wrap = document.createElement('div');
+  wrap.className = 'dpr-archive';
+
+  if (!dprs.length) {
+    wrap.innerHTML = '<div class="empty-state">No DPRs logged yet.</div>';
+    return wrap;
+  }
+
+  const sorted = [...dprs].sort((a,b) => new Date(b.date) - new Date(a.date));
+  sorted.forEach((dpr, i) => {
+    const text = dpr.report || dpr.formatted_report || '';
+    const entry = document.createElement('div');
+    entry.className = 'dpr-entry';
+    entry.innerHTML = `
+      <div class="dpr-entry-header" onclick="toggleDPREntry(${i})">
+        <span class="dpr-entry-date">${dpr.date || '—'}</span>
+        <span class="dpr-entry-preview">${text.split('\n').filter(Boolean)[0] || '—'}</span>
+        <span class="dpr-entry-arrow" id="dprArrow-${i}">▶</span>
+      </div>
+      <div class="dpr-entry-body" id="dprBody-${i}">${text}</div>
+    `;
+    wrap.appendChild(entry);
+  });
+
+  return wrap;
+}
+
+window.toggleDPREntry = function(i) {
+  const body  = document.getElementById(`dprBody-${i}`);
+  const arrow = document.getElementById(`dprArrow-${i}`);
+  const open  = body.classList.toggle('open');
+  arrow.classList.toggle('open', open);
+};
+
+// ─── FLAGS ────────────────────────────────────────────────────
+function buildFlags(activities, materials, today) {
+  const wrap = document.createElement('div');
+  wrap.className = 'flags-section';
+
+  const flags = [];
+
+  activities.forEach(act => {
+    const slipDays = Number(act.total_slippage_days) || 0;
+    const status = (act.status || '').toLowerCase();
+    const name = act.activity || act.name || '';
+
+    if (status === 'delayed' && slipDays > 0) {
+      flags.push({ icon: '⚠️', title: `Timeline extension — ${name}`, detail: `+${slipDays} day${slipDays > 1 ? 's' : ''} · ${act.delay_log?.split('\n').pop() || ''}`, type: 'delay' });
+    }
+    if (act.delay_log && act.delay_log.toLowerCase().includes('work increase')) {
+      flags.push({ icon: '🟣', title: `Work Increase — ${name}`, detail: act.delay_log.split('\n').find(l => l.toLowerCase().includes('work increase')) || '', type: 'wi' });
+    }
+    if (status === 'completed') {
+      flags.push({ icon: '✅', title: `Early completion — ${name}`, detail: `Mark as closed?`, type: 'early', actName: name });
+    }
+  });
+
+  materials.forEach(m => {
+    if (m.target_date && new Date(m.target_date) < today) {
+      const overdueDays = Math.round((today - new Date(m.target_date)) / 86400000);
+      flags.push({ icon: '🔴', title: `Overdue client material — ${m.material || m.name}`, detail: `Target: ${m.target_date} · ${overdueDays} day${overdueDays > 1 ? 's' : ''} overdue`, type: 'overdue' });
+    }
+  });
+
+  if (!flags.length) {
+    wrap.innerHTML = '<div class="empty-state">No active flags.</div>';
+    return wrap;
+  }
+
+  flags.forEach(f => {
+    const row = document.createElement('div');
+    row.className = 'flag-row';
+    let actionsHtml = '';
+    if (f.type === 'early') {
+      actionsHtml = `
+        <div class="flag-actions">
+          <button class="flag-btn">✓ Confirm Close</button>
+          <button class="flag-btn">Keep Open</button>
+        </div>`;
+    }
+    row.innerHTML = `
+      <div class="flag-icon">${f.icon}</div>
+      <div class="flag-content">
+        <div class="flag-title">${f.title}</div>
+        <div class="flag-detail">${f.detail}</div>
+      </div>
+      ${actionsHtml}
+    `;
+    wrap.appendChild(row);
+  });
+
+  return wrap;
+}
+
+// ─── PDF MODAL ────────────────────────────────────────────────
+function buildPDFGanttFromData(activities, today) {
+  // Always light-mode for print
+  const ROW_H   = 28;
+  const LABEL_W = 180;
+  const PX_DAY  = 4;
+  const gridC   = '#e0dbd3';
+  const amberC  = '#b8711f';
+  const colorMap = { completed:'#1e8449', on_track:'#1a6fa0', in_progress:'#1a6fa0', delayed:'#a93226', not_started:'#c8c0b8' };
+
+  if (!activities.length) return;
+  const allDates = activities.flatMap(a => [a.planned_start, a.current_end || a.planned_end].filter(Boolean)).map(s => new Date(s)).filter(x => !isNaN(x));
+  if (!allDates.length) return;
+  const minD = new Date(Math.min(...allDates));
+  const maxD = new Date(Math.max(...allDates, today));
+  minD.setDate(1);
+  maxD.setMonth(maxD.getMonth() + 1); maxD.setDate(1);
+
+  const totalDays = Math.ceil((maxD - minD) / 86400000);
+  const chartW    = totalDays * PX_DAY;
+
+  function dayX(d) { return Math.round((new Date(d) - minD) / 86400000) * PX_DAY; }
+
+  const container = document.getElementById('pdfGanttVisual');
+  container.innerHTML = '';
+  container.style.cssText = 'display:inline-block;min-width:100%';
+
+  // Axis row
+  const axisRow = document.createElement('div');
+  axisRow.style.cssText = 'display:flex;align-items:flex-end;height:24px';
+
+  const axSpacer = document.createElement('div');
+  axSpacer.style.cssText = `width:${LABEL_W}px;flex-shrink:0`;
+  axisRow.appendChild(axSpacer);
+
+  const axTicks = document.createElement('div');
+  axTicks.style.cssText = `position:relative;width:${chartW}px;height:24px;flex-shrink:0;overflow:visible`;
+
+  let prevLX = -999;
+  const cur = new Date(minD);
+  while (cur <= maxD) {
+    const x = Math.round((cur - minD) / 86400000) * PX_DAY;
+    if (x - prevLX > 40) {
+      const sp = document.createElement('span');
+      sp.style.cssText = `position:absolute;bottom:4px;left:${x + 2}px;font-family:'DM Mono',monospace;font-size:9px;font-weight:500;color:#5c5148;white-space:nowrap`;
+      sp.textContent = cur.toLocaleDateString('en-GB', { month: 'short' }) + " '" + cur.getFullYear().toString().slice(2);
+      axTicks.appendChild(sp);
+      prevLX = x;
+    }
+    cur.setMonth(cur.getMonth() + 1);
+  }
+  axisRow.appendChild(axTicks);
+  container.appendChild(axisRow);
+
+  const todayX = dayX(today);
+
+  activities.forEach((act, i) => {
+    const row = document.createElement('div');
+    row.style.cssText = `display:flex;align-items:center;height:${ROW_H}px`;
+
+    const lbl = document.createElement('div');
+    lbl.style.cssText = `width:${LABEL_W}px;flex-shrink:0;font-family:'DM Sans',sans-serif;font-size:10px;font-weight:500;color:#1a1714;text-align:right;padding-right:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap`;
+    lbl.textContent = act.activity || act.name || '';
+    row.appendChild(lbl);
+
+    const track = document.createElement('canvas');
+    track.width  = chartW;
+    track.height = ROW_H;
+    const ctx = track.getContext('2d');
+
+    ctx.fillStyle = i % 2 === 0 ? 'rgba(0,0,0,0.018)' : 'transparent';
+    ctx.fillRect(0, 0, chartW, ROW_H);
+
+    // Grid lines
+    const cm2 = new Date(minD);
+    while (cm2 <= maxD) {
+      const gx = Math.round((cm2 - minD) / 86400000) * PX_DAY;
+      ctx.strokeStyle = gridC; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, ROW_H); ctx.stroke();
+      cm2.setMonth(cm2.getMonth() + 1);
+    }
+
+    const status = (act.status || '').toLowerCase();
+    const slip   = Number(act.total_slippage_days) || 0;
+    let barC = colorMap[status] || colorMap.not_started;
+    if (status === 'delayed' && slip <= 7) barC = '#d4ac0d';
+
+    const x1  = act.planned_start ? dayX(act.planned_start) : -1;
+    const xPE = act.planned_end   ? dayX(act.planned_end)   : -1;
+    const xCE = (act.current_end || act.planned_end) ? dayX(act.current_end || act.planned_end) : -1;
+    const barH = ROW_H - 12;
+    const barY = 6;
+
+    if (x1 >= 0 && xPE > x1) {
+      ctx.fillStyle = barC;
+      ctx.beginPath(); ctx.roundRect(x1, barY, Math.max(xPE - x1, 3), barH, 2); ctx.fill();
+    }
+    if (xCE > xPE && xPE > 0) {
+      ctx.fillStyle = '#7d3c98'; ctx.globalAlpha = 0.85;
+      ctx.beginPath(); ctx.roundRect(xPE, barY, xCE - xPE, barH, 2); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    if (act.planned_end && act.current_end && act.current_end !== act.planned_end) {
+      ctx.strokeStyle = '#aaa'; ctx.lineWidth = 1.5;
+      ctx.setLineDash([2, 2]);
+      ctx.beginPath(); ctx.moveTo(xPE, 3); ctx.lineTo(xPE, ROW_H - 4); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    ctx.strokeStyle = amberC; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(todayX, 0); ctx.lineTo(todayX, ROW_H); ctx.stroke();
+
+    row.appendChild(track);
+    container.appendChild(row);
+  });
+
+  // Today label
+  const todayRow = document.createElement('div');
+  todayRow.style.cssText = 'display:flex;align-items:flex-start;height:16px';
+  const ts = document.createElement('div');
+  ts.style.cssText = `width:${LABEL_W}px;flex-shrink:0`;
+  todayRow.appendChild(ts);
+  const tl = document.createElement('span');
+  tl.style.cssText = `position:relative;left:${todayX + 3}px;font-family:'DM Mono',monospace;font-size:9px;font-weight:500;color:${amberC}`;
+  tl.textContent = today.toLocaleDateString('en-GB', { day:'2-digit', month:'short' });
+  todayRow.appendChild(tl);
+  container.appendChild(todayRow);
+}
+
+function openPDFModal() {
+  if (!dashData) return;
+  const today = new Date();
+  const todayStr = `${String(today.getDate()).padStart(2,'0')}/${String(today.getMonth()+1).padStart(2,'0')}/${today.getFullYear()}`;
+  const pName = dashData.project || currentProject;
+
+  document.getElementById('pdfModalMeta').innerHTML =
+    `<strong>${pName}</strong><br>${todayStr}<br>Snapshot: ${todayStr}`;
+
+  // Build hybrid Gantt for PDF (HTML labels — no fonts.ready needed)
+  buildPDFGanttFromData(dashData.activities || [], today);
+
+  // Gantt detail table below the visual
+  let ganttHtml = '<table style="width:100%;border-collapse:collapse;font-family:\'DM Mono\',monospace;font-size:10px;margin-top:4px">';
+  ganttHtml += '<tr style="border-bottom:1px solid #e0dbd3;background:#f0ece6"><th style="text-align:left;padding:4px 8px;color:#5c5148">Activity</th><th style="text-align:left;padding:4px 8px;color:#5c5148">Start</th><th style="text-align:left;padding:4px 8px;color:#5c5148">End</th><th style="text-align:left;padding:4px 8px;color:#5c5148">Status</th><th style="text-align:left;padding:4px 8px;color:#5c5148">Slippage</th></tr>';
+  (dashData.activities || []).forEach(a => {
+    const slip = Number(a.total_slippage_days) || 0;
+    ganttHtml += `<tr style="border-bottom:1px solid #f0ece6"><td style="padding:3px 8px">${a.activity||'—'}</td><td style="padding:3px 8px">${a.planned_start||'—'}</td><td style="padding:3px 8px">${a.current_end||a.planned_end||'—'}</td><td style="padding:3px 8px;text-transform:capitalize">${(a.status||'—').replace(/_/g,' ')}</td><td style="padding:3px 8px">${slip ? '+'+slip+'d' : '—'}</td></tr>`;
+  });
+  ganttHtml += '</table>';
+  document.getElementById('pdfGanttContainer').innerHTML = ganttHtml;
+
+  // Materials (pending only)
+  const pendingMats = (dashData.materials || []).filter(m => !['received','good'].includes((m.status||m.condition||'').toLowerCase()));
+  let matsHtml = pendingMats.length
+    ? pendingMats.map(m => {
+        const s = getMatStatus(m);
+        return `<div style="padding:6px 0;border-bottom:1px solid #f0ece6;font-family:DM Mono,monospace;font-size:11px"><strong>${m.material||'—'}</strong> — ${m.area||''} <span style="color:${s.cls.includes('red')?'#a93226':'#b8711f'}">[${s.label}]</span>${m.target_date ? `  Target: ${m.target_date}` : ''}</div>`;
+      }).join('')
+    : '<div style="font-family:DM Mono,monospace;font-size:11px;color:#9a9188">No pending client materials.</div>';
+  document.getElementById('pdfMaterialsContainer').innerHTML = matsHtml;
+
+  document.getElementById('pdfFooter').textContent = `COVVA — ${pName}  ·  ${todayStr}  ·  Confidential`;
+  document.getElementById('pdfModal').classList.add('visible');
+}
+
+function closePDFModal() {
+  document.getElementById('pdfModal').classList.remove('visible');
+}
+
+// ─── UTILS ────────────────────────────────────────────────────
+function fmtDateShort(d) {
+  if (!d || isNaN(new Date(d))) return '—';
+  return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+// ─── INIT ─────────────────────────────────────────────────────
+if (currentProject) {
+  document.getElementById('projectDisplay').textContent = currentProject.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ').toUpperCase();
+  loadDashboard();
+} else {
+  document.getElementById('mainContent').innerHTML = '<div class="loading-state">Add <code>?project=project-name</code> to the URL, or select a project above.</div>';
+}
+</script>
+</body>
+</html>
