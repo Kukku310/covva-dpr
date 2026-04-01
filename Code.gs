@@ -245,7 +245,7 @@ function doGet(e) {
   if (action === 'setupData' && project) {
     return serveSetupData(project);
   }
-  if (action === 'projectList') {
+  if (action === 'projectList' || action === 'listProjects') {
     return serveProjectList();
   }
 
@@ -339,18 +339,48 @@ function serveProjectList() {
   try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheets = ss.getSheets();
-    const projectSet = {};
+    const projectNames = [];
 
     sheets.forEach(function(s) {
-      const name = s.getName();
-      // Match tabs ending in "— DPR"
-      const match = name.match(/^(.+) — DPR$/);
-      if (match) {
-        projectSet[match[1]] = true;
-      }
+      const match = s.getName().match(/^(.+) — DPR$/);
+      if (match) projectNames.push(match[1]);
     });
 
-    return jsonResponse({ success: true, projects: Object.keys(projectSet) });
+    const projects = projectNames.map(function(name) {
+      const info = { name: name, start_date: '', end_date: '', last_dpr_date: '' };
+
+      // Get start/end from Timeline tab (min planned_start, max current_end or planned_end)
+      const timeline = ss.getSheetByName(name + ' — Timeline');
+      if (timeline) {
+        const rows = timeline.getDataRange().getValues();
+        const allDates = [];
+        const endDates = [];
+        for (let i = 1; i < rows.length; i++) {
+          if (rows[i][1]) allDates.push(new Date(rows[i][1])); // planned_start col B
+          if (rows[i][3]) endDates.push(new Date(rows[i][3])); // current_end col D
+          else if (rows[i][2]) endDates.push(new Date(rows[i][2])); // planned_end col C
+        }
+        const validStart = allDates.filter(function(d) { return !isNaN(d); });
+        const validEnd   = endDates.filter(function(d) { return !isNaN(d); });
+        if (validStart.length) info.start_date = new Date(Math.min.apply(null, validStart)).toISOString();
+        if (validEnd.length)   info.end_date   = new Date(Math.max.apply(null, validEnd)).toISOString();
+      }
+
+      // Get last DPR date from DPR tab (col A = Date)
+      const dprTab = ss.getSheetByName(name + ' — DPR');
+      if (dprTab) {
+        const rows = dprTab.getDataRange().getValues();
+        const dates = [];
+        for (let i = 1; i < rows.length; i++) {
+          if (rows[i][0]) { const d = new Date(rows[i][0]); if (!isNaN(d)) dates.push(d); }
+        }
+        if (dates.length) info.last_dpr_date = new Date(Math.max.apply(null, dates)).toISOString();
+      }
+
+      return info;
+    });
+
+    return jsonResponse({ success: true, projects: projects });
   } catch(err) {
     return jsonResponse({ success: false, error: err.message });
   }

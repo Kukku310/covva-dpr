@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>COVVA — Projects</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* ── CSS VARIABLES ── */
+:root {
+  --bg:      #f5f2ee;
+  --surface: #ffffff;
+  --panel:   #f0ece6;
+  --border:  #e0dbd3;
+  --amber:   #b8711f;
+  --amber-glow: rgba(184,113,31,0.12);
+  --amber-dim: #9a5a18;
+  --text:    #1a1714;
+  --dim:     #9a9188;
+  --mid:     #5c5148;
+  --green:   #1e8449;
+  --red:     #a93226;
+}
+body.dark {
+  --bg:      #0e0e0e;
+  --surface: #161616;
+  --panel:   #1e1e1e;
+  --border:  #2a2a2a;
+  --amber:   #d4872a;
+  --amber-glow: rgba(212,135,42,0.15);
+  --amber-dim: #8a5515;
+  --text:    #e8e2d9;
+  --dim:     #7a7268;
+  --mid:     #a89f94;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  min-height: 100vh;
+}
+
+/* ── HEADER ── */
+.header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 18px 28px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.logo {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 28px;
+  letter-spacing: 3px;
+  color: var(--amber);
+  line-height: 1;
+}
+
+.logo-sep { color: var(--border); font-size: 20px; }
+
+.header-title {
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  color: var(--mid);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.header-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dark-btn {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--dim);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 5px 10px;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  transition: all 0.2s;
+}
+.dark-btn:hover { color: var(--text); border-color: var(--mid); }
+
+/* ── MAIN ── */
+.main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 32px 24px 60px;
+}
+
+.page-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 20px;
+}
+
+/* ── LOADING / EMPTY STATES ── */
+.state-msg {
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  color: var(--dim);
+  padding: 48px 0;
+  text-align: center;
+  letter-spacing: 0.5px;
+}
+
+.loading-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--amber);
+  animation: blink 1s ease infinite;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+/* ── PROJECT GRID ── */
+.project-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+@media (max-width: 600px) {
+  .project-grid { grid-template-columns: 1fr; }
+  .main { padding: 24px 16px 48px; }
+}
+
+/* ── PROJECT CARD ── */
+.project-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 22px 20px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: border-color 0.2s;
+}
+.project-card:hover { border-color: var(--amber-dim); }
+
+.card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.card-name {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 22px;
+  letter-spacing: 1.5px;
+  color: var(--text);
+  line-height: 1.1;
+}
+
+.status-chip {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.status-chip.active {
+  background: rgba(30,132,73,0.12);
+  color: var(--green);
+  border: 1px solid rgba(30,132,73,0.25);
+}
+.status-chip.completed {
+  background: rgba(154,145,136,0.12);
+  color: var(--dim);
+  border: 1px solid var(--border);
+}
+
+.card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.meta-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.meta-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  min-width: 72px;
+  flex-shrink: 0;
+}
+
+.meta-value {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--mid);
+}
+
+.meta-value.highlight {
+  color: var(--amber);
+  font-size: 13px;
+}
+
+.meta-value.no-data {
+  color: var(--dim);
+  font-style: italic;
+}
+
+/* Progress bar */
+.progress-wrap {
+  background: var(--panel);
+  border-radius: 2px;
+  height: 3px;
+  width: 100%;
+  overflow: hidden;
+}
+.progress-bar {
+  height: 100%;
+  background: var(--amber);
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+.card-footer {
+  margin-top: 4px;
+}
+
+.open-btn {
+  width: 100%;
+  padding: 10px;
+  background: var(--amber-glow);
+  color: var(--amber);
+  border: 1px solid var(--amber-dim);
+  border-radius: 4px;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 15px;
+  letter-spacing: 2px;
+  cursor: pointer;
+  text-align: center;
+  text-decoration: none;
+  display: block;
+  transition: all 0.2s;
+}
+.open-btn:hover {
+  background: var(--amber);
+  color: var(--bg);
+}
+
+/* ── SETUP LINK ── */
+.setup-link-wrap {
+  text-align: center;
+  padding-top: 8px;
+}
+.setup-link {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--dim);
+  text-decoration: none;
+  letter-spacing: 0.5px;
+  border-bottom: 1px dashed var(--border);
+  padding-bottom: 1px;
+  transition: color 0.2s;
+}
+.setup-link:hover { color: var(--amber); border-color: var(--amber-dim); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">COVVA</div>
+  <div class="logo-sep">|</div>
+  <div class="header-title">Projects</div>
+  <div class="header-actions">
+    <button class="dark-btn" id="darkBtn" onclick="toggleTheme()">Dark Mode</button>
+  </div>
+</div>
+
+<div class="main">
+  <div class="page-label">All Projects</div>
+  <div id="projectGrid" class="project-grid">
+    <div class="state-msg" style="grid-column:1/-1"><span class="loading-dot"></span>Loading projects...</div>
+  </div>
+  <div class="setup-link-wrap">
+    <a class="setup-link" href="setup.html">+ Setup New Project</a>
+  </div>
+</div>
+
+<script>
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxFdzeKRc_juIjEVje4MHoBXwNz4bgWDyQRMItgJfN4Pzq4SNJbEitsBTbvawH0Tnv_/exec';
+
+// ── THEME ──────────────────────────────────────────────────────
+function applyTheme(isDark) {
+  document.body.classList.toggle('dark', isDark);
+  document.getElementById('darkBtn').textContent = isDark ? 'Light Mode' : 'Dark Mode';
+  try { localStorage.setItem('covva-dash-theme', isDark ? 'dark' : 'light'); } catch(e) {}
+}
+function toggleTheme() { applyTheme(!document.body.classList.contains('dark')); }
+(function() {
+  try { applyTheme(localStorage.getItem('covva-dash-theme') === 'dark'); } catch(e) {}
+})();
+
+// ── DATE HELPERS ───────────────────────────────────────────────
+function fmtDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d)) return '—';
+  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' });
+}
+
+function dayXofY(startIso, endIso) {
+  if (!startIso || !endIso) return null;
+  const start = new Date(startIso);
+  const end   = new Date(endIso);
+  const today = new Date();
+  if (isNaN(start) || isNaN(end)) return null;
+  const totalDays = Math.max(1, Math.round((end - start) / 86400000) + 1);
+  const dayX      = Math.min(totalDays, Math.max(1, Math.round((today - start) / 86400000) + 1));
+  const pct       = Math.min(100, Math.max(0, Math.round((dayX / totalDays) * 100)));
+  return { x: dayX, y: totalDays, pct };
+}
+
+function isCompleted(endIso) {
+  if (!endIso) return false;
+  return new Date(endIso) < new Date();
+}
+
+// ── RENDER CARD ────────────────────────────────────────────────
+function buildCard(p) {
+  const progress  = dayXofY(p.start_date, p.end_date);
+  const completed = isCompleted(p.end_date);
+  const statusLabel = completed ? 'Completed' : 'Active';
+  const statusClass = completed ? 'completed' : 'active';
+
+  const dayLine = progress
+    ? `<span class="meta-value highlight">Day ${progress.x} of ${progress.y}</span>`
+    : `<span class="meta-value no-data">No dates set</span>`;
+
+  const progressBar = progress
+    ? `<div class="progress-wrap"><div class="progress-bar" style="width:${progress.pct}%"></div></div>`
+    : '';
+
+  const lastDPR = p.last_dpr_date
+    ? `<span class="meta-value">${fmtDate(p.last_dpr_date)}</span>`
+    : `<span class="meta-value no-data">None yet</span>`;
+
+  const dashUrl = `dashboard.html?project=${encodeURIComponent(p.name)}`;
+
+  const card = document.createElement('div');
+  card.className = 'project-card';
+  card.innerHTML = `
+    <div class="card-top">
+      <div class="card-name">${p.name}</div>
+      <div class="status-chip ${statusClass}">${statusLabel}</div>
+    </div>
+    <div class="card-meta">
+      <div class="meta-row">
+        <span class="meta-label">Timeline</span>
+        ${dayLine}
+      </div>
+      ${progressBar}
+      <div class="meta-row">
+        <span class="meta-label">Last DPR</span>
+        ${lastDPR}
+      </div>
+    </div>
+    <div class="card-footer">
+      <a class="open-btn" href="${dashUrl}">Open Dashboard</a>
+    </div>
+  `;
+  return card;
+}
+
+// ── LOAD PROJECTS ─────────────────────────────────────────────
+async function loadProjects() {
+  const grid = document.getElementById('projectGrid');
+  try {
+    const resp = await fetch(`${APPS_SCRIPT_URL}?action=listProjects`, { redirect: 'follow' });
+    const data = await resp.json();
+
+    if (!data.success || !data.projects || !data.projects.length) {
+      grid.innerHTML = '<div class="state-msg" style="grid-column:1/-1">No projects found. Set one up below.</div>';
+      return;
+    }
+
+    grid.innerHTML = '';
+    data.projects.forEach(function(p) {
+      grid.appendChild(buildCard(p));
+    });
+
+  } catch(err) {
+    grid.innerHTML = `<div class="state-msg" style="grid-column:1/-1">Failed to load projects: ${err.message}</div>`;
+  }
+}
+
+loadProjects();
+</script>
+</body>
+</html>
