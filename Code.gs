@@ -344,7 +344,8 @@ function serveProjectList() {
     sheets.forEach(function(s) {
       const tabName = s.getName();
       // Match any dash variant: em dash (—), en dash (–), or hyphen (-) with surrounding spaces
-      const match = tabName.match(/^(.+)\s[—–-]\s*DPR$/);
+      // \u2014 = em dash, \u2013 = en dash, \u002d = hyphen
+      const match = tabName.match(/^(.+)\s[\u2014\u2013\u002d]\s*DPR$/);
       if (match) projectNames.push(match[1].trim());
     });
 
@@ -352,9 +353,9 @@ function serveProjectList() {
       const info = { name: name, start_date: '', end_date: '', last_dpr_date: '' };
 
       // Get start/end from Timeline tab — try both em dash and hyphen variants
-      const timeline = ss.getSheetByName(name + ' — Timeline') ||
-                       ss.getSheetByName(name + ' - Timeline')  ||
-                       ss.getSheetByName(name + ' – Timeline');
+      const timeline = ss.getSheetByName(name + ' \u2013 Timeline') ||
+                       ss.getSheetByName(name + ' \u2014 Timeline') ||
+                       ss.getSheetByName(name + ' - Timeline');
       if (timeline) {
         const rows = timeline.getDataRange().getValues();
         const allDates = [];
@@ -371,9 +372,9 @@ function serveProjectList() {
       }
 
       // Get last DPR date from DPR tab — try both em dash and hyphen variants
-      const dprTab = ss.getSheetByName(name + ' — DPR') ||
-                     ss.getSheetByName(name + ' - DPR')  ||
-                     ss.getSheetByName(name + ' – DPR');
+      const dprTab = ss.getSheetByName(name + ' \u2013 DPR') ||
+                     ss.getSheetByName(name + ' \u2014 DPR') ||
+                     ss.getSheetByName(name + ' - DPR');
       if (dprTab) {
         const rows = dprTab.getDataRange().getValues();
         const dates = [];
