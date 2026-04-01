@@ -353,8 +353,10 @@ function serveProjectList() {
       const info = { name: name, start_date: '', end_date: '', last_dpr_date: '' };
 
       // Get start/end from Timeline tab — try both em dash and hyphen variants
-      const timeline = ss.getSheetByName(name + ' \u2013 Timeline') ||
-                       ss.getSheetByName(name + ' \u2014 Timeline') ||
+      const enDash = String.fromCharCode(8211);
+      const emDash = String.fromCharCode(8212);
+      const timeline = ss.getSheetByName(name + ' ' + enDash + ' Timeline') ||
+                       ss.getSheetByName(name + ' ' + emDash + ' Timeline') ||
                        ss.getSheetByName(name + ' - Timeline');
       if (timeline) {
         const rows = timeline.getDataRange().getValues();
@@ -372,8 +374,8 @@ function serveProjectList() {
       }
 
       // Get last DPR date from DPR tab — try both em dash and hyphen variants
-      const dprTab = ss.getSheetByName(name + ' \u2013 DPR') ||
-                     ss.getSheetByName(name + ' \u2014 DPR') ||
+      const dprTab = ss.getSheetByName(name + ' ' + enDash + ' DPR') ||
+                     ss.getSheetByName(name + ' ' + emDash + ' DPR') ||
                      ss.getSheetByName(name + ' - DPR');
       if (dprTab) {
         const rows = dprTab.getDataRange().getValues();
