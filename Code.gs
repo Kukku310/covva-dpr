@@ -341,20 +341,25 @@ function serveProjectList() {
     const sheets = ss.getSheets();
     const projectNames = [];
 
+    const enDash = String.fromCharCode(8211);
+    const emDash = String.fromCharCode(8212);
+
     sheets.forEach(function(s) {
       const tabName = s.getName();
-      // Match any dash variant: em dash (—), en dash (–), or hyphen (-) with surrounding spaces
-      // \u2014 = em dash, \u2013 = en dash, \u002d = hyphen
-      const match = tabName.match(/^(.+)\s[\u2014\u2013\u002d]\s*DPR$/);
-      if (match) projectNames.push(match[1].trim());
+      // Use indexOf to avoid regex encoding issues with dash characters
+      const hasDPR = tabName.indexOf(enDash + ' DPR') > -1 ||
+                     tabName.indexOf(emDash + ' DPR') > -1 ||
+                     tabName.indexOf('- DPR') > -1;
+      if (hasDPR) {
+        const name = tabName.replace(' ' + enDash + ' DPR', '')
+                            .replace(' ' + emDash + ' DPR', '')
+                            .replace(' - DPR', '').trim();
+        projectNames.push(name);
+      }
     });
 
     const projects = projectNames.map(function(name) {
       const info = { name: name, start_date: '', end_date: '', last_dpr_date: '' };
-
-      // Get start/end from Timeline tab — try both em dash and hyphen variants
-      const enDash = String.fromCharCode(8211);
-      const emDash = String.fromCharCode(8212);
       const timeline = ss.getSheetByName(name + ' ' + enDash + ' Timeline') ||
                        ss.getSheetByName(name + ' ' + emDash + ' Timeline') ||
                        ss.getSheetByName(name + ' - Timeline');
