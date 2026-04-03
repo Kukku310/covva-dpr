@@ -1158,7 +1158,7 @@ function openGanttDetail(act, dprs) {
     if (mentions.length) {
       html += `<div class="change-log-title">Mentions in DPRs</div>`;
       mentions.slice(0, 5).forEach(dpr => {
-        html += `<div class="change-entry delay" style="background:transparent;border:1px solid var(--border);color:var(--dim)"><strong style="color:var(--amber)">${dpr.date || ''}</strong> — ${(dpr.report || dpr.formatted_report || '').substring(0, 100)}...</div>`;
+        html += `<div class="change-entry delay" style="background:transparent;border:1px solid var(--border);color:var(--dim)"><strong style="color:var(--amber)">${fmtDateShort(dpr.date)}</strong> — ${(dpr.report || dpr.formatted_report || '').substring(0, 100)}...</div>`;
       });
     }
   }
@@ -1215,10 +1215,10 @@ function buildStrengthToday(dprs) {
   const reportText = latest.report || latest.formatted_report || '';
   const tradeData  = parseTradesFromDPR(reportText);
 
-  if (!tradeData.total) return `<div class="empty-state">No site strength data in latest DPR (${latest.date}).</div>`;
+  if (!tradeData.total) return `<div class="empty-state">No site strength data in latest DPR (${fmtDateShort(latest.date)}).</div>`;
 
   let html = `<div class="strength-total">${tradeData.total}</div>`;
-  html += `<div class="strength-label">TOTAL ON SITE — LAST REPORTED: ${latest.date}</div>`;
+  html += `<div class="strength-label">TOTAL ON SITE — LAST REPORTED: ${fmtDateShort(latest.date)}</div>`;
 
   tradeData.trades.forEach(t => {
     const pct = tradeData.total > 0 ? (t.count / tradeData.total) * 100 : 0;
