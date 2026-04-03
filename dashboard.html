@@ -1132,9 +1132,9 @@ function openGanttDetail(act, dprs) {
 
   let html = `<div class="detail-title">${actName}</div>`;
   html += `<div class="detail-grid">`;
-  html += detailCell('Planned Start', act.planned_start || '—');
-  html += detailCell('Planned End', act.planned_end || '—');
-  html += detailCell('Current End', act.current_end || '—');
+  html += detailCell('Planned Start', fmtDateShort(act.planned_start) || '—');
+  html += detailCell('Planned End', fmtDateShort(act.planned_end) || '—');
+  html += detailCell('Current End', fmtDateShort(act.current_end) || '—');
   html += detailCell('Status', (act.status || '—').replace(/_/g,' ').toUpperCase());
   html += detailCell('Total Slippage', slipDays ? `${slipDays} days` : '0 days');
   html += `</div>`;
@@ -1642,7 +1642,7 @@ function openPDFModal() {
   ganttHtml += '<tr style="border-bottom:1px solid #e0dbd3;background:#f0ece6"><th style="text-align:left;padding:4px 8px;color:#5c5148">Activity</th><th style="text-align:left;padding:4px 8px;color:#5c5148">Start</th><th style="text-align:left;padding:4px 8px;color:#5c5148">End</th><th style="text-align:left;padding:4px 8px;color:#5c5148">Status</th><th style="text-align:left;padding:4px 8px;color:#5c5148">Slippage</th></tr>';
   (dashData.activities || []).forEach(a => {
     const slip = Number(a.total_slippage_days) || 0;
-    ganttHtml += `<tr style="border-bottom:1px solid #f0ece6"><td style="padding:3px 8px">${a.activity||'—'}</td><td style="padding:3px 8px">${a.planned_start||'—'}</td><td style="padding:3px 8px">${a.current_end||a.planned_end||'—'}</td><td style="padding:3px 8px;text-transform:capitalize">${(a.status||'—').replace(/_/g,' ')}</td><td style="padding:3px 8px">${slip ? '+'+slip+'d' : '—'}</td></tr>`;
+    ganttHtml += `<tr style="border-bottom:1px solid #f0ece6"><td style="padding:3px 8px">${a.activity||'—'}</td><td style="padding:3px 8px">${fmtDateShort(a.planned_start)||'—'}</td><td style="padding:3px 8px">${fmtDateShort(a.current_end||a.planned_end)||'—'}</td><td style="padding:3px 8px;text-transform:capitalize">${(a.status||'—').replace(/_/g,' ')}</td><td style="padding:3px 8px">${slip ? '+'+slip+'d' : '—'}</td></tr>`;
   });
   ganttHtml += '</table>';
   document.getElementById('pdfGanttContainer').innerHTML = ganttHtml;
