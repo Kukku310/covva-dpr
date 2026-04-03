@@ -824,9 +824,10 @@ async function loadProjectList() {
     const autoSelect = currentProject || (dashData && dashData.project) || '';
     data.projects.forEach(p => {
       const opt = document.createElement('option');
-      opt.value = p;
-      opt.textContent = p;
-      if (p === autoSelect) opt.selected = true;
+      const pName = (typeof p === 'object') ? p.name : p;
+      opt.value = pName;
+      opt.textContent = pName;
+      if (pName === autoSelect) opt.selected = true;
       sel.appendChild(opt);
     });
   } catch(e) { /* silently fail — project list is optional UI */ }

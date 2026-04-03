@@ -927,8 +927,9 @@ async function loadProjectList() {
     sel.innerHTML = '<option value="">Select a project to edit...</option>';
     data.projects.forEach(p => {
       const opt = document.createElement('option');
-      opt.value = p;
-      opt.textContent = p;
+      const pName = (typeof p === 'object') ? p.name : p;
+      opt.value = pName;
+      opt.textContent = pName;
       sel.appendChild(opt);
     });
   } catch(e) {
