@@ -715,7 +715,7 @@
 2. Agar koi kaam ruka hua hai toh reason bolo<br>
 3. Ab kya kaam shuru hoga aur kab`,
       dprLabel: 'Timeline Update — Ready to Post',
-      sheetNote: 'Timeline sheet updated automatically.'
+      sheetNote: 'Timeline sheet will update when you tap Copy & Post to Group.'
     },
     material: {
       label: 'Material Log — Voice Input',
@@ -855,6 +855,11 @@
   }
 
   function onRecordingComplete(blob, mimeType, duration) {
+    if (!blob || blob.size === 0) {
+      showError('This recording was empty, so it was skipped. Please record that clip again.');
+      return;
+    }
+
     const url = URL.createObjectURL(blob);
     clips.push({ blob, mimeType, duration, url });
 
@@ -928,7 +933,13 @@
       for (let i = 0; i < clips.length; i++) {
         setStatus(`Preparing clip ${i + 1} of ${clips.length}...`);
         const b64 = await blobToBase64(clips[i].blob);
-        audioPayload.push({ base64: b64, mime: clips[i].mimeType });
+        if (b64 && b64.trim()) {
+          audioPayload.push({ base64: b64, mime: clips[i].mimeType });
+        }
+      }
+
+      if (audioPayload.length === 0) {
+        throw new Error('No valid audio clips were found. Please record again and retry.');
       }
 
       setStatus('Generating report...');
@@ -952,6 +963,7 @@
         hideStatus();
         _lastMode = currentMode;
         _lastDate = getReportDate();
+        _lastStructuredData = result.structuredData || '';
         showDPR(result.dpr);
       } else {
         throw new Error(result.error || 'Unknown error');
@@ -984,7 +996,7 @@
   // ─── DPR OUTPUT ───────────────────────────────────────────
   function showDPR(text) {
     const box = document.getElementById('dprOutput');
-    box.textContent = text;
+    box.textContent = cleanReportText(text);
     document.getElementById('dprSection').classList.add('visible');
 
     // Show sheet note based on mode
@@ -1000,12 +1012,23 @@
     document.getElementById('dprSection').scrollIntoView({ behavior: 'smooth' });
   }
 
+  function cleanReportText(text) {
+    return String(text || '')
+      .replace(/\r/g, '')
+      .replace(/^\s*SECTION\s*1\b[^\n]*\n?/gim, '')
+      .replace(/\n+\s*SECTION\s*2\b[\s\S]*$/i, '')
+      .replace(/\n+\s*---JSON---[\s\S]*$/i, '')
+      .trim();
+  }
+
   // Stores mode + date from the generation call for use at log time
   let _lastMode    = 'daily';
   let _lastDate    = null;
+  let _lastStructuredData = '';
 
   function copyDPR() {
-    const text = document.getElementById('dprOutput').innerText;
+    const text = cleanReportText(document.getElementById('dprOutput').innerText);
+    document.getElementById('dprOutput').textContent = text;
     navigator.clipboard.writeText(text).then(() => {
       const btn = document.getElementById('copyBtn');
       btn.textContent = 'Copied ✓';
@@ -1015,20 +1038,63 @@
         btn.classList.remove('copied');
       }, 2500);
 
+      // ── Weekly: guard against missing structured data before logging ──
+      if (_lastMode === 'weekly' && !_lastStructuredData) {
+        const note = document.getElementById('sheetNote');
+        if (note) {
+          note.textContent = '⚠️ Timeline not updated — AI response had no structured data. Tap Start New Report and re-generate.';
+          note.style.color = '#c0392b';
+          note.classList.add('visible');
+        }
+        return;
+      }
+
       // ── Log the current (possibly edited) text to Sheets ──
-      logEditedDPR(text, _lastMode, _lastDate || getReportDate());
+      logEditedDPR(text, _lastMode, _lastDate || getReportDate(), _lastStructuredData);
     });
   }
 
-  // Fire-and-forget: sends edited text + mode to Apps Script for Sheets logging
-  function logEditedDPR(text, mode, dateISO) {
+  // Logs edited text + mode to Apps Script; shows feedback for weekly mode
+  function logEditedDPR(text, mode, dateISO, structuredData) {
     const form = new FormData();
     form.append('action', 'logDPR');
     form.append('mode', mode);
     form.append('project', projectName);
     form.append('date', dateISO);
     form.append('dprText', text);
-    fetch(APPS_SCRIPT_URL, { method: 'POST', body: form, redirect: 'follow' }).catch(() => {});
+    if (structuredData) {
+      form.append('structuredData', structuredData);
+    }
+
+    const req = fetch(APPS_SCRIPT_URL, { method: 'POST', body: form, redirect: 'follow' });
+
+    if (mode === 'weekly') {
+      const note = document.getElementById('sheetNote');
+      if (note) { note.textContent = 'Updating timeline…'; note.style.color = ''; note.classList.add('visible'); }
+      req
+        .then(r => r.json())
+        .then(result => {
+          if (note) {
+            if (result && result.success) {
+              note.textContent = '✓ Timeline updated in Sheet';
+              note.style.color = '#1e8449';
+            } else {
+              note.textContent = '⚠️ Timeline update failed — ' + ((result && result.error) || 'unknown error') + '. Re-generate and try again.';
+              note.style.color = '#c0392b';
+            }
+            note.classList.add('visible');
+          }
+        })
+        .catch(() => {
+          if (note) {
+            note.textContent = '⚠️ Timeline update failed — network error. Re-generate and try again.';
+            note.style.color = '#c0392b';
+            note.classList.add('visible');
+          }
+        });
+    } else {
+      req.catch(() => {});
+    }
   }
 
   // ─── ERROR ────────────────────────────────────────────────
@@ -1062,6 +1128,7 @@
     document.getElementById('clipsSection').classList.remove('visible');
     document.getElementById('clipList').innerHTML = '';
     document.getElementById('sheetNote').classList.remove('visible');
+    _lastStructuredData = '';
     hideStatus();
     hideError();
 
