@@ -1692,9 +1692,13 @@ async function loadPickerState() {
   const mc = document.getElementById('mainContent');
   mc.innerHTML = '<div class="loading-state">Loading projects…</div>';
   try {
-    const res = await fetch(SCRIPT_URL + '?action=getProjects');
+    const res = await fetch(`${APPS_SCRIPT_PROJECT_LIST_URL}?action=listProjects`, { redirect: 'follow' });
     const data = await res.json();
-    const projects = Array.isArray(data) ? data : (data.projects || []);
+    if (!data.success || !data.projects) {
+      mc.innerHTML = '<div class="empty-state">No projects found. <a href="home.html">Go to Projects</a></div>';
+      return;
+    }
+    const projects = data.projects;
     if (!projects.length) {
       mc.innerHTML = '<div class="empty-state">No projects found. <a href="home.html">Go to Projects</a></div>';
       return;
