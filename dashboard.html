@@ -758,7 +758,8 @@ body {
 
 <script>
 // ─── CONFIG ───────────────────────────────────────────────────
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyVlr7PmcDZZIr7hBddxMwVINBuaX1iorqExu1YLYMz6K4mb3UQsGsnplASPMVPrWdc/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzcUokFn0MTGieOsC2a6r-HP883YPwBNLXPZB9MhBZaW4NI5cGF062K5k1AKT3feQWB/exec';
+const APPS_SCRIPT_PROJECT_LIST_URL = 'https://script.google.com/macros/s/AKfycbwiaQ3CA6cHDhkTZJWvwFBhLi8KnEftj0_fdtKIYUlqk03pOPS4shV_aD3RbsYVaUWp/exec';
 
 // ─── STATE ────────────────────────────────────────────────────
 const params = new URLSearchParams(window.location.search);
@@ -830,7 +831,7 @@ async function loadDashboard() {
 
 async function loadProjectList() {
   try {
-    const url = `${APPS_SCRIPT_URL}?action=projectList`;
+    const url = `${APPS_SCRIPT_PROJECT_LIST_URL}?action=listProjects`;
     const resp = await fetch(url, { redirect: 'follow' });
     const data = await resp.json();
     if (!data.success || !data.projects) return;
