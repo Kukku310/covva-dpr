@@ -571,6 +571,21 @@ body {
   color: var(--dim);
 }
 
+/* ── PICKER ROW ── */
+.picker-row {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin-bottom: 8px;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 18px;
+  letter-spacing: 1.5px;
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.picker-row:hover { border-color: var(--amber-dim); background: var(--panel); }
+
 /* ── STRENGTH CHART ── */
 .strength-chart-container { overflow-x: auto; }
 
@@ -1671,12 +1686,36 @@ function fmtDateShort(d) {
   return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+// ─── PICKER (no project param) ────────────────────────────────
+async function loadPickerState() {
+  const mc = document.getElementById('mainContent');
+  mc.innerHTML = '<div class="loading-state">Loading projects…</div>';
+  try {
+    const res = await fetch(SCRIPT_URL + '?action=getProjects');
+    const data = await res.json();
+    const projects = Array.isArray(data) ? data : (data.projects || []);
+    if (!projects.length) {
+      mc.innerHTML = '<div class="empty-state">No projects found. <a href="home.html">Go to Projects</a></div>';
+      return;
+    }
+    let html = '<div style="padding:16px"><div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--dim);margin-bottom:12px;text-transform:uppercase;letter-spacing:.08em">Select a project to open its dashboard</div>';
+    projects.forEach(p => {
+      const pName = (typeof p === 'object') ? p.name : p;
+      html += `<div class="picker-row" onclick="switchProject('${pName.replace(/'/g,"\\'")}')">` + pName.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') + '</div>';
+    });
+    html += '</div>';
+    mc.innerHTML = html;
+  } catch(e) {
+    mc.innerHTML = '<div class="empty-state">Could not load projects. <a href="home.html">Go to Projects</a></div>';
+  }
+}
+
 // ─── INIT ─────────────────────────────────────────────────────
 if (currentProject) {
   document.getElementById('projectDisplay').textContent = currentProject.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ').toUpperCase();
   loadDashboard();
 } else {
-  document.getElementById('mainContent').innerHTML = '<div class="loading-state">Add <code>?project=project-name</code> to the URL, or select a project above.</div>';
+  loadPickerState();
 }
 </script>
 </body>
