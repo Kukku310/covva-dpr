@@ -722,8 +722,9 @@ async function submitNewProject() {
     const resp = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: form, redirect: 'follow' });
     const data = await resp.json();
     if (data.success) {
-      showMsg('newProjectMsg', 'success', `✓ Project "${name}" created successfully.`);
+      showMsg('newProjectMsg', 'success', `✓ Project "${name}" created. Returning to projects…`);
       loadProjectList();
+      setTimeout(() => { window.location.href = 'home.html'; }, 1400);
     } else {
       throw new Error(data.error || 'Save failed');
     }

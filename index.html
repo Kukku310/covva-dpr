@@ -664,7 +664,8 @@
 
   // ─── PROJECT FROM URL ─────────────────────────────────────
   const params = new URLSearchParams(window.location.search);
-  const projectRaw = params.get('project') || 'site';
+  if (!params.get('project')) { window.location.replace('home.html'); }
+  const projectRaw = params.get('project');
   const projectName = projectRaw.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 
   document.getElementById('projectDisplay').textContent = projectName;

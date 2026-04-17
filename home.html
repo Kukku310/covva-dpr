@@ -252,8 +252,12 @@ body {
   margin-top: 4px;
 }
 
+.card-footer {
+  display: flex;
+  gap: 8px;
+}
 .open-btn {
-  width: 100%;
+  flex: 1;
   padding: 10px;
   background: var(--amber-glow);
   color: var(--amber);
@@ -271,6 +275,16 @@ body {
 .open-btn:hover {
   background: var(--amber);
   color: var(--bg);
+}
+.secondary-btn {
+  background: none;
+  color: var(--dim);
+  border-color: var(--border);
+}
+.secondary-btn:hover {
+  background: var(--panel);
+  color: var(--mid);
+  border-color: var(--mid);
 }
 
 /* ── SETUP LINK ── */
@@ -371,6 +385,7 @@ function buildCard(p) {
     : `<span class="meta-value no-data">None yet</span>`;
 
   const dashUrl = `dashboard.html?project=${encodeURIComponent(p.name)}`;
+  const dprUrl  = `index.html?project=${encodeURIComponent(p.name)}`;
 
   const card = document.createElement('div');
   card.className = 'project-card';
@@ -391,7 +406,8 @@ function buildCard(p) {
       </div>
     </div>
     <div class="card-footer">
-      <a class="open-btn" href="${dashUrl}">Open Dashboard</a>
+      <a class="open-btn" href="${dprUrl}">Start DPR</a>
+      <a class="open-btn secondary-btn" href="${dashUrl}">Open Dashboard</a>
     </div>
   `;
   return card;
