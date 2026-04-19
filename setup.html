@@ -477,6 +477,8 @@ table.edit-table {
           <tr>
             <th>Material Name</th>
             <th>Area</th>
+            <th>Required On Site</th>
+            <th>Qty Required</th>
             <th>Inform Date</th>
             <th>Target Date</th>
             <th>Status</th>
@@ -548,6 +550,8 @@ table.edit-table {
               <tr>
                 <th>Material</th>
                 <th>Area</th>
+                <th>Required On Site</th>
+                <th>Qty Required</th>
                 <th>Inform Date</th>
                 <th>Target Date</th>
                 <th>Status</th>
@@ -650,6 +654,8 @@ function addMaterialRow(context, data) {
     tr.innerHTML = `
       <td><input class="td-input" type="text" value="${esc(d.material||d['Material']||'')}" placeholder="Material name"></td>
       <td><input class="td-input" type="text" value="${esc(d.area||d['Area']||'')}"></td>
+      <td><input class="td-input" type="date" value="${toDateInput(d.required_on_site_date||d['Required On Site Date']||'')}"></td>
+      <td><input class="td-input" type="text" value="${esc(d.qty_required||d['Qty Required']||'')}" placeholder="e.g. 850 sqft"></td>
       <td><input class="td-input" type="date" value="${toDateInput(d.inform_date||d['Inform Date']||'')}"></td>
       <td><input class="td-input" type="date" value="${toDateInput(d.target_date||d['Target Date']||'')}"></td>
       <td>${materialStatusSelect(d.status||d['Status']||'Not Yet Informed')}</td>
@@ -664,6 +670,8 @@ function addMaterialRow(context, data) {
     tr.innerHTML = `
       <td><input class="td-input" type="text" placeholder="Material name"></td>
       <td><input class="td-input" type="text" placeholder="Area/Room"></td>
+      <td><input class="td-input" type="date"></td>
+      <td><input class="td-input" type="text" placeholder="e.g. 850 sqft"></td>
       <td><input class="td-input" type="date"></td>
       <td><input class="td-input" type="date"></td>
       <td>${materialStatusSelect('Not Yet Informed')}</td>
@@ -693,7 +701,16 @@ function collectNewMaterials() {
   const rows = document.querySelectorAll('#newMaterialBody tr');
   return [...rows].map(tr => {
     const cells = tr.querySelectorAll('input, select');
-    return { material: cells[0].value, area: cells[1].value, inform_date: cells[2].value, target_date: cells[3].value, status: cells[4].value, notes: cells[5].value };
+    return {
+      material: cells[0].value,
+      area: cells[1].value,
+      required_on_site_date: cells[2].value,
+      qty_required: cells[3].value,
+      inform_date: cells[4].value,
+      target_date: cells[5].value,
+      status: cells[6].value,
+      notes: cells[7].value
+    };
   }).filter(r => r.material.trim());
 }
 
@@ -786,10 +803,12 @@ async function saveMaterialRow(btn, context) {
     updateType: 'material',
     material: inputs[0].value,
     area: inputs[1].value,
-    inform_date: inputs[2].value,
-    target_date: inputs[3].value,
-    status: inputs[4].value,
-    notes: inputs[5].value,
+    required_on_site_date: inputs[2].value,
+    qty_required: inputs[3].value,
+    inform_date: inputs[4].value,
+    target_date: inputs[5].value,
+    status: inputs[6].value,
+    notes: inputs[7].value,
     manual_override: overrideChip ? overrideChip.classList.contains('active') : false
   };
 

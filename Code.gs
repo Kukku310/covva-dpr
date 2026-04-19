@@ -322,7 +322,9 @@ function serveDashboardData(project) {
     const materials = readTab(ss, safeProject + ' — Materials', [
       'date', 'material', 'area', 'qty_received', 'condition',
       'damage_detail', 'qty_pending', 'pending_reason', 'expected_date', 'supplier', 'logged_at',
-      'inform_date', 'target_date', 'status', 'notes'
+      'inform_date', 'target_date', 'status', 'notes',
+      '_manual_override', '_override_ts',
+      'required_on_site_date', 'qty_required', 'last_delivery_note', 'last_delivery_at'
     ]);
 
     const dprs = readTab(ss, safeProject + ' — DPR', [
@@ -474,10 +476,11 @@ function saveProjectData(payload) {
       'Date', 'Material', 'Area', 'Qty Received', 'Condition',
       'Damage Detail', 'Qty Pending', 'Pending Reason', 'Expected Date',
       'Supplier', 'Logged At', 'Inform Date', 'Target Date', 'Status', 'Notes',
-      'Manual Override', 'Override Timestamp'
+      'Manual Override', 'Override Timestamp',
+      'Required On Site Date', 'Qty Required', 'Last Delivery Note', 'Last Delivery At'
     ];
     const matSheet = getOrCreateTab(ss, project + ' — Materials', matHeaders,
-      [100, 160, 140, 100, 90, 200, 100, 180, 110, 140, 160, 110, 110, 140, 200, 100, 140]
+      [100, 160, 140, 100, 90, 200, 100, 180, 110, 140, 160, 110, 110, 140, 200, 100, 140, 120, 100, 200, 120]
     );
 
     // ─── DPR tab (just ensure it exists) ─────────────────────
@@ -561,7 +564,7 @@ function upsertMaterialRow(sheet, mat, now) {
   const overrideStamp = mat.manual_override ? now : '';
 
   if (foundRow > 0) {
-    sheet.getRange(foundRow, 1, 1, 17).setValues([[
+    sheet.getRange(foundRow, 1, 1, 21).setValues([[
       data[foundRow-1][0],  // preserve original date
       mat.material  || data[foundRow-1][1],
       mat.area      || data[foundRow-1][2],
@@ -578,13 +581,18 @@ function upsertMaterialRow(sheet, mat, now) {
       mat.status  || data[foundRow-1][13] || '',
       mat.notes   || data[foundRow-1][14] || '',
       overrideFlag,
-      overrideStamp
+      overrideStamp,
+      mat.required_on_site_date || data[foundRow-1][17] || '',
+      mat.qty_required          || data[foundRow-1][18] || '',
+      data[foundRow-1][19] || '',  // preserve Last Delivery Note (Phase 2)
+      data[foundRow-1][20] || ''   // preserve Last Delivery At (Phase 2)
     ]]);
   } else {
     sheet.appendRow([
       now, mat.material || '', mat.area || '', '', '', '', '', '', mat.target_date || '', '', now,
       mat.inform_date || '', mat.target_date || '', mat.status || 'Not Yet Informed', mat.notes || '',
-      overrideFlag, overrideStamp
+      overrideFlag, overrideStamp,
+      mat.required_on_site_date || '', mat.qty_required || '', '', ''
     ]);
   }
 }
@@ -1306,24 +1314,29 @@ function logToMaterials(project, dateFormatted, data) {
 
   const headers = [
     'Date', 'Material', 'Area', 'Qty Received', 'Condition',
-    'Damage Detail', 'Qty Pending', 'Pending Reason', 'Expected Date', 'Supplier', 'Logged At'
+    'Damage Detail', 'Qty Pending', 'Pending Reason', 'Expected Date',
+    'Supplier', 'Logged At', 'Inform Date', 'Target Date', 'Status', 'Notes',
+    'Manual Override', 'Override Timestamp',
+    'Required On Site Date', 'Qty Required', 'Last Delivery Note', 'Last Delivery At'
   ];
   const sheet = getOrCreateTab(ss, tabName, headers,
-    [100, 160, 140, 100, 90, 200, 100, 180, 110, 140, 160]
+    [100, 160, 140, 100, 90, 200, 100, 180, 110, 140, 160, 110, 110, 140, 200, 100, 140, 120, 100, 200, 120]
   );
 
+  // Append delivery log row; MRD columns (17-20) left blank — set via setup.html only
   sheet.appendRow([
     dateFormatted,
-    data.material     || '',
-    data.area         || '',
-    data.qty_received || '',
-    data.condition    || '',
+    data.material       || '',
+    data.area           || '',
+    data.qty_received   || '',
+    data.condition      || '',
     data.damage_detail  || '',
     data.qty_pending    || '',
     data.pending_reason || '',
     data.expected_date  || '',
     data.supplier       || '',
-    new Date().toLocaleString('en-IN')
+    new Date().toLocaleString('en-IN'),
+    '', '', '', '', '', '', '', '', '', ''
   ]);
 }
 
