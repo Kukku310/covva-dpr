@@ -321,7 +321,7 @@ Typical trades on this site:
 19. ✅ **All files pushed to GitHub** — `index.html`, `dashboard.html`, `setup.html`, `Code.gs` live on `main` branch; GitHub Pages rebuilt and serving all files
 
 **⚠️ Pending:** Apps Script must be redeployed with a new version for the expanded `Code.gs` (new `doGet` routes and `doPost` actions) to go live. Current deployment still runs the previous version.
-- ⬜ Code.gs — Phase 3: same-day correction logic in upsertActivityRow / Weekly Update path
+- ✅ Code.gs — Phase 3: same-day correction logic in applyTimelineUpdateToRowData + extractSameDayDelayLogEntry helper
 - ⬜ Code.gs — Phase 3: redeployed with new version
 - ⬜ Code.gs — Phase 4: rollbackTimeline() function added + doPost routing
 - ⬜ setup.html — Phase 4: Rollback Timeline button + modal + toast

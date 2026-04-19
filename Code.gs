@@ -5,10 +5,10 @@
 // ═══════════════════════════════════════════════════════════════
 
 // ─── YOUR KEYS ────────────────────────────────────────────────
-const GEMINI_API_KEY  = 'YOUR_GEMINI_API_KEY';   // Set this in Apps Script only — never commit the real key
-const SPREADSHEET_ID  = 'YOUR_SPREADSHEET_ID';   // Set this in Apps Script only — never commit the real ID
+const GEMINI_API_KEY  = 'YOUR_GEMINI_API_KEY';
+const SPREADSHEET_ID  = '11Xi5K1v-m10PhxnZ5dYBKD4w91IITzFXT0EDsqvFJ7Q';
 
-const GEMINI_MODEL = 'gemini-2.0-flash';
+const GEMINI_MODEL = 'gemini-3.1-flash-lite-preview';
 
 const TIMELINE_HEADERS = [
   'Activity', 'Planned Start', 'Planned End', 'Current End',
@@ -929,11 +929,38 @@ function applyTimelineUpdateToRowData(rowData, update, reportDate, dateFormatted
   const plannedStartDate = normalizeTimelineDate(rowData[TIMELINE_COL.PLANNED_START]);
   const inferredStartDelayDays = inferTimelineStartDelayDays(update, reportDate, plannedStartDate);
   const currentStatus = normalizeTimelineStatus(update.status, inferredStartDelayDays);
-  const currentSlippage = Number(rowData[TIMELINE_COL.SLIPPAGE]) || 0;
+  let currentSlippage = Number(rowData[TIMELINE_COL.SLIPPAGE]) || 0;
   const delayDays = Math.max(Number(update.delay_days) || 0, inferredStartDelayDays);
   const plannedEndDate = normalizeTimelineDate(rowData[TIMELINE_COL.PLANNED_END]);
   const currentEndDateRaw = normalizeTimelineDate(rowData[TIMELINE_COL.CURRENT_END]);
   let currentEndDate = currentEndDateRaw || plannedEndDate;
+
+  // Phase 3: same-day correction — defence-in-depth for rows where AI history undo
+  // did not catch a prior same-day entry (absent history, or old rows pre-dating the
+  // history system). Detects an existing Delay Log entry for today's date, subtracts
+  // its original delay_days from Current End and Slippage, then removes it so the new
+  // submission replaces rather than stacks. Falls back to standard append on any error.
+  let delayLog = String(rowData[TIMELINE_COL.DELAY_LOG] || '');
+  try {
+    const sameDayResult = extractSameDayDelayLogEntry(delayLog, dateFormatted);
+    if (sameDayResult.found) {
+      Logger.log('Phase 3: replacing same-day entry for ' + (update.activity || '') + ' on ' + dateFormatted);
+      const prevDays = sameDayResult.originalDelayDays;
+      if (prevDays > 0) {
+        const rolledBack = addTimelineDays(currentEndDate, -prevDays);
+        if (plannedEndDate && rolledBack && rolledBack.getTime() < plannedEndDate.getTime()) {
+          currentEndDate = plannedEndDate;
+        } else {
+          currentEndDate = rolledBack;
+        }
+        currentSlippage = Math.max(0, currentSlippage - prevDays);
+      }
+      delayLog = sameDayResult.newDelayLog;
+    }
+  } catch (phase3Err) {
+    Logger.log('Phase 3 same-day parse failed for ' + (update.activity || '') + ': ' + phase3Err);
+    delayLog = String(rowData[TIMELINE_COL.DELAY_LOG] || '');
+  }
 
   if (delayDays > 0) {
     const baselineEndDate = latestTimelineDate(currentEndDate, plannedEndDate);
@@ -947,7 +974,6 @@ function applyTimelineUpdateToRowData(rowData, update, reportDate, dateFormatted
 
   const currentEnd = currentEndDate ? formatDate(currentEndDate) : (rowData[TIMELINE_COL.CURRENT_END] || rowData[TIMELINE_COL.PLANNED_END] || '');
   const newSlippage = calculateTimelineSlippage(currentSlippage, plannedEndDate, currentEndDate, delayDays);
-  let delayLog = String(rowData[TIMELINE_COL.DELAY_LOG] || '');
   if (delayDays > 0) {
     const reason = buildTimelineDelayReason(update, inferredStartDelayDays);
     const entry = inferredStartDelayDays > 0 && (!update.delay_days || Number(update.delay_days) <= 0)
@@ -1291,6 +1317,33 @@ function resetTimelineAIFn(project, mode, resetDate) {
   } catch (err) {
     return jsonResponse({ success: false, error: err.message });
   }
+}
+
+function extractSameDayDelayLogEntry(delayLog, dateFormatted) {
+  // Scans the newline-separated Delay Log string for an entry containing dateFormatted.
+  // Entry format: "① dd MMM yyyy +Xd — reason"  (dateFormatted = "19 Apr 2026")
+  // Returns { found: false } if none, or { found: true, originalDelayDays: N, newDelayLog: '...' }.
+  if (!delayLog || !dateFormatted) return { found: false };
+  const entries = String(delayLog).split('\n');
+  let foundIndex = -1;
+  let originalDelayDays = 0;
+  for (let i = 0; i < entries.length; i++) {
+    const e = entries[i].trim();
+    if (!e) continue;
+    if (e.indexOf(dateFormatted) > -1) {
+      const dayMatch = e.match(/\+(\d+)d/);
+      originalDelayDays = dayMatch ? Number(dayMatch[1]) : 0;
+      foundIndex = i;
+      break;
+    }
+  }
+  if (foundIndex < 0) return { found: false };
+  const filtered = entries.filter(function(_, i) { return i !== foundIndex; });
+  return {
+    found: true,
+    originalDelayDays: originalDelayDays,
+    newDelayLog: filtered.filter(function(s) { return s.trim(); }).join('\n')
+  };
 }
 
 function findLatestTimelineAIToken(sheet) {
