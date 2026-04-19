@@ -698,6 +698,113 @@ body {
 
 /* ── STRENGTH LINE CHART (canvas-based) ── */
 .canvas-chart { width: 100%; max-height: 220px; }
+
+/* ── MRD POPOVER ── */
+.mrd-popover {
+  position: fixed;
+  z-index: 500;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 14px;
+  min-width: 180px;
+  max-width: 240px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  pointer-events: none;
+}
+.mrd-popover-name {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.mrd-popover-area {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--dim);
+  margin-bottom: 6px;
+}
+.mrd-popover-row {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+/* ── PROCUREMENT TABLE ── */
+.procurement-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.procurement-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+.procurement-intro {
+  padding: 8px 16px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: var(--dim);
+  border-bottom: 1px solid var(--border);
+}
+.procurement-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.procurement-table th {
+  text-align: left;
+  padding: 8px 12px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--mid);
+  background: var(--panel);
+  border-bottom: 2px solid var(--border);
+}
+.procurement-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--dim);
+  vertical-align: middle;
+}
+.procurement-table td.p-name {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+.procurement-table tr:last-child td { border-bottom: none; }
+.procurement-table tr:nth-child(even) { background: var(--panel); }
+.procurement-table tr:hover td { background: var(--amber-glow); }
+
+/* ── COPY TOAST ── */
+.copy-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--text);
+  color: var(--bg);
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  padding: 8px 18px;
+  border-radius: 20px;
+  z-index: 9999;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+.copy-toast.visible { opacity: 1; }
 </style>
 </head>
 <body>
@@ -746,6 +853,8 @@ body {
     <div id="pdfGanttContainer"></div>
     <div class="modal-section-title">Pending Client Actions</div>
     <div id="pdfMaterialsContainer"></div>
+    <div class="modal-section-title" id="pdfProcurementTitle" style="display:none;margin-top:16px">Procurement Schedule</div>
+    <div id="pdfProcurementContainer"></div>
     <div class="modal-footer" id="pdfFooter"></div>
     <div class="modal-actions">
       <button class="modal-btn modal-btn-close" onclick="closePDFModal()">Close Preview</button>
@@ -901,6 +1010,10 @@ function renderDashboard() {
     main.appendChild(buildSectionTitle('⑤', 'Flags & Actions', true));
     main.appendChild(buildFlags(d.activities || [], d.materials || [], today));
   }
+
+  // ── Section 6: Procurement Schedule (internal + client) ──
+  main.appendChild(buildSectionTitle('⑥', 'Procurement Schedule'));
+  main.appendChild(buildProcurementSection(d.materials || []));
 }
 
 // ─── SECTION TITLE ────────────────────────────────────────────
@@ -1090,6 +1203,103 @@ function buildGantt(activities, dprs, today, startDate, endDate) {
     container.appendChild(row);
   });
 
+  // ── MRD MARKERS (canvas diamonds + HTML labels, between activity rows and today label) ──
+  const mrdMats = (dashData && dashData.materials || []).filter(m => {
+    if (!m.required_on_site_date || !m.required_on_site_date.trim()) return false;
+    const d = new Date(m.required_on_site_date);
+    if (isNaN(d)) return false;
+    if (isClientView) {
+      const s = (m.status || '').toLowerCase();
+      if (s.includes('received')) return false;
+    }
+    const mx = Math.round((d - minD) / 86400000) * PX_PER_DAY;
+    return mx >= 0 && mx <= chartW;
+  });
+
+  if (mrdMats.length > 0) {
+    const MRD_H = 32;
+
+    // Canvas row
+    const mrdRow = document.createElement('div');
+    mrdRow.style.cssText = 'display:flex;align-items:flex-start;position:relative';
+
+    const mrdSpacer = document.createElement('div');
+    mrdSpacer.style.cssText = `width:${LABEL_W}px;flex-shrink:0`;
+    mrdRow.appendChild(mrdSpacer);
+
+    const mrdCanvasWrap = document.createElement('div');
+    mrdCanvasWrap.style.cssText = `position:relative;width:${chartW}px;height:${MRD_H}px;flex-shrink:0;overflow:visible`;
+
+    const mrdCanvas = document.createElement('canvas');
+    mrdCanvas.width  = chartW;
+    mrdCanvas.height = MRD_H;
+    const mrdCtx = mrdCanvas.getContext('2d');
+
+    mrdMats.forEach(m => {
+      const mDate = new Date(m.required_on_site_date);
+      const mx    = Math.round((mDate - minD) / 86400000) * PX_PER_DAY;
+      const col   = getMRDColor(m, isDark);
+      const cy    = 9;   // diamond centre Y
+      const sz    = 5;   // half-width of diamond
+
+      // Diamond (rotated square)
+      mrdCtx.fillStyle = col;
+      mrdCtx.beginPath();
+      mrdCtx.moveTo(mx,      cy - sz); // top
+      mrdCtx.lineTo(mx + sz, cy);      // right
+      mrdCtx.lineTo(mx,      cy + sz); // bottom
+      mrdCtx.lineTo(mx - sz, cy);      // left
+      mrdCtx.closePath();
+      mrdCtx.fill();
+
+      // Stem down from diamond
+      mrdCtx.strokeStyle = col;
+      mrdCtx.lineWidth   = 2;
+      mrdCtx.beginPath();
+      mrdCtx.moveTo(mx, cy + sz);
+      mrdCtx.lineTo(mx, cy + sz + 12);
+      mrdCtx.stroke();
+
+      // Transparent tap target
+      const tap = document.createElement('div');
+      tap.style.cssText = `position:absolute;left:${mx - 22}px;top:0;width:44px;height:${MRD_H}px;cursor:pointer;z-index:10`;
+      tap.addEventListener('click', e => { e.stopPropagation(); showMRDPopover(tap, m, col); });
+      mrdCanvasWrap.appendChild(tap);
+    });
+
+    mrdCanvasWrap.insertBefore(mrdCanvas, mrdCanvasWrap.firstChild);
+    mrdRow.appendChild(mrdCanvasWrap);
+    container.appendChild(mrdRow);
+
+    // HTML label row (below canvas, above today label)
+    const mrdLabelRow = document.createElement('div');
+    mrdLabelRow.style.cssText = 'display:flex;align-items:flex-start;position:relative;height:20px;overflow:visible';
+
+    const mrdLblSpacer = document.createElement('div');
+    mrdLblSpacer.style.cssText = `width:${LABEL_W}px;flex-shrink:0`;
+    mrdLabelRow.appendChild(mrdLblSpacer);
+
+    const mrdLblTrack = document.createElement('div');
+    mrdLblTrack.style.cssText = `position:relative;width:${chartW}px;height:20px;flex-shrink:0;overflow:visible`;
+
+    mrdMats.forEach(m => {
+      const mDate = new Date(m.required_on_site_date);
+      const mx    = Math.round((mDate - minD) / 86400000) * PX_PER_DAY;
+      const col   = getMRDColor(m, isDark);
+      const raw   = m.material || '';
+      const name  = raw.length > 12 ? raw.substring(0, 12) + '…' : raw;
+      const topOff = Math.abs(mx - todayX) < 20 ? 14 : 0;
+
+      const lbl = document.createElement('span');
+      lbl.style.cssText = `position:absolute;left:${mx - 2}px;top:${topOff}px;font-family:'DM Mono',monospace;font-size:9px;color:${col};white-space:nowrap;pointer-events:none`;
+      lbl.textContent = name;
+      mrdLblTrack.appendChild(lbl);
+    });
+
+    mrdLabelRow.appendChild(mrdLblTrack);
+    container.appendChild(mrdLabelRow);
+  }
+
   // ── TODAY DATE LABEL (HTML, below last row) ──
   const todayLabelRow = document.createElement('div');
   todayLabelRow.className = 'g-today-label';
@@ -1120,6 +1330,7 @@ function buildGantt(activities, dprs, today, startDate, endDate) {
     { color: '#a93226', label: 'Delayed >7d' },
     { color: '#c8c0b8', label: 'Not Started' },
     { color: '#7d3c98', label: 'Work Increase' },
+    { color: isDark ? '#d4872a' : '#b8711f', label: '◆ MRD Pin' },
   ];
   legendItems.forEach(({ color, label }) => {
     const item = document.createElement('div');
@@ -1628,6 +1839,88 @@ function buildPDFGanttFromData(activities, today) {
     container.appendChild(row);
   });
 
+  // MRD markers (PDF — always light mode colours)
+  const pdfMrdMats = (dashData && dashData.materials || []).filter(m => {
+    if (!m.required_on_site_date || !m.required_on_site_date.trim()) return false;
+    const d = new Date(m.required_on_site_date);
+    if (isNaN(d)) return false;
+    // PDF = client view rules: hide RECEIVED
+    const s = (m.status || '').toLowerCase();
+    if (s.includes('received')) return false;
+    const mx = Math.round((d - minD) / 86400000) * PX_DAY;
+    return mx >= 0 && mx <= chartW;
+  });
+
+  if (pdfMrdMats.length > 0) {
+    const PDF_MRD_H = 28;
+
+    const pdfMrdRow = document.createElement('div');
+    pdfMrdRow.style.cssText = 'display:flex;align-items:flex-start;position:relative';
+
+    const pdfMrdSpacer = document.createElement('div');
+    pdfMrdSpacer.style.cssText = `width:${LABEL_W}px;flex-shrink:0`;
+    pdfMrdRow.appendChild(pdfMrdSpacer);
+
+    const pdfMrdCanvasWrap = document.createElement('div');
+    pdfMrdCanvasWrap.style.cssText = `position:relative;width:${chartW}px;height:${PDF_MRD_H}px;flex-shrink:0;overflow:visible`;
+
+    const pdfMrdCanvas = document.createElement('canvas');
+    pdfMrdCanvas.width  = chartW;
+    pdfMrdCanvas.height = PDF_MRD_H;
+    const pdfMrdCtx = pdfMrdCanvas.getContext('2d');
+
+    pdfMrdMats.forEach(m => {
+      const mDate = new Date(m.required_on_site_date);
+      const mx    = Math.round((mDate - minD) / 86400000) * PX_DAY;
+      const col   = getMRDColor(m, false); // always light mode for PDF
+      const cy    = 7; const sz = 4;
+
+      pdfMrdCtx.fillStyle = col;
+      pdfMrdCtx.beginPath();
+      pdfMrdCtx.moveTo(mx,      cy - sz);
+      pdfMrdCtx.lineTo(mx + sz, cy);
+      pdfMrdCtx.lineTo(mx,      cy + sz);
+      pdfMrdCtx.lineTo(mx - sz, cy);
+      pdfMrdCtx.closePath();
+      pdfMrdCtx.fill();
+
+      pdfMrdCtx.strokeStyle = col;
+      pdfMrdCtx.lineWidth   = 1.5;
+      pdfMrdCtx.beginPath();
+      pdfMrdCtx.moveTo(mx, cy + sz);
+      pdfMrdCtx.lineTo(mx, cy + sz + 10);
+      pdfMrdCtx.stroke();
+    });
+
+    pdfMrdCanvasWrap.appendChild(pdfMrdCanvas);
+
+    // PDF MRD label row
+    const pdfMrdLblTrack = document.createElement('div');
+    pdfMrdLblTrack.style.cssText = `position:relative;width:${chartW}px;height:14px;flex-shrink:0;overflow:visible`;
+    pdfMrdMats.forEach(m => {
+      const mDate = new Date(m.required_on_site_date);
+      const mx    = Math.round((mDate - minD) / 86400000) * PX_DAY;
+      const col   = getMRDColor(m, false);
+      const raw   = m.material || '';
+      const name  = raw.length > 10 ? raw.substring(0, 10) + '…' : raw;
+      const lbl   = document.createElement('span');
+      lbl.style.cssText = `position:absolute;left:${mx - 2}px;top:0;font-family:'DM Mono',monospace;font-size:8px;color:${col};white-space:nowrap`;
+      lbl.textContent = name;
+      pdfMrdLblTrack.appendChild(lbl);
+    });
+
+    const pdfMrdLblRow = document.createElement('div');
+    pdfMrdLblRow.style.cssText = 'display:flex;align-items:flex-start;position:relative';
+    const pdfMrdLblSpacer = document.createElement('div');
+    pdfMrdLblSpacer.style.cssText = `width:${LABEL_W}px;flex-shrink:0`;
+    pdfMrdLblRow.appendChild(pdfMrdLblSpacer);
+    pdfMrdLblRow.appendChild(pdfMrdLblTrack);
+
+    pdfMrdRow.appendChild(pdfMrdCanvasWrap);
+    container.appendChild(pdfMrdRow);
+    container.appendChild(pdfMrdLblRow);
+  }
+
   // Today label
   const todayRow = document.createElement('div');
   todayRow.style.cssText = 'display:flex;align-items:flex-start;height:16px';
@@ -1673,6 +1966,31 @@ function openPDFModal() {
     : '<div style="font-family:DM Mono,monospace;font-size:11px;color:#9a9188">No pending client materials.</div>';
   document.getElementById('pdfMaterialsContainer').innerHTML = matsHtml;
 
+  // Procurement Schedule (PDF — client view rules: no RECEIVED)
+  const procPdfMats = (dashData.materials || [])
+    .filter(m => m.required_on_site_date && m.required_on_site_date.trim())
+    .filter(m => !getMatStatus(m).label.includes('RECEIVED'))
+    .sort((a, b) => new Date(a.required_on_site_date) - new Date(b.required_on_site_date));
+
+  const pdfProcTitle = document.getElementById('pdfProcurementTitle');
+  const pdfProcCont  = document.getElementById('pdfProcurementContainer');
+  if (procPdfMats.length) {
+    pdfProcTitle.style.display = 'block';
+    let procHtml = '<table style="width:100%;border-collapse:collapse;font-family:\'DM Mono\',monospace;font-size:10px;margin-top:4px">';
+    procHtml += '<tr style="border-bottom:1px solid #e0dbd3;background:#f0ece6"><th style="text-align:left;padding:4px 8px;color:#5c5148">Material</th><th style="text-align:left;padding:4px 8px;color:#5c5148">Area</th><th style="text-align:left;padding:4px 8px;color:#5c5148">Required On Site</th><th style="text-align:left;padding:4px 8px;color:#5c5148">Status</th></tr>';
+    procPdfMats.forEach(m => {
+      const s = getMatStatus(m);
+      const dStr = m.required_on_site_date ? new Date(m.required_on_site_date).toLocaleDateString('en-GB', {day:'2-digit',month:'2-digit',year:'numeric'}) : '—';
+      const sCol = s.cls.includes('red') ? '#a93226' : s.cls.includes('blue') ? '#2980b9' : s.cls.includes('green') ? '#1e8449' : '#b8711f';
+      procHtml += `<tr style="border-bottom:1px solid #f0ece6"><td style="padding:3px 8px">${m.material||'—'}</td><td style="padding:3px 8px">${m.area||'—'}</td><td style="padding:3px 8px">${dStr}</td><td style="padding:3px 8px;color:${sCol}">${s.label}</td></tr>`;
+    });
+    procHtml += '</table>';
+    pdfProcCont.innerHTML = procHtml;
+  } else {
+    pdfProcTitle.style.display = 'none';
+    pdfProcCont.innerHTML = '';
+  }
+
   document.getElementById('pdfFooter').textContent = `COVVA — ${pName}  ·  ${todayStr}  ·  Confidential`;
   document.getElementById('pdfModal').classList.add('visible');
 }
@@ -1714,6 +2032,201 @@ async function loadPickerState() {
   } catch(e) {
     mc.innerHTML = '<div class="empty-state">Could not load projects. <a href="home.html">Go to Projects</a></div>';
   }
+}
+
+// ─── MRD HELPERS ──────────────────────────────────────────────
+function getMRDColor(m, isDark) {
+  const s = (m.status || '').toLowerCase();
+  if (s.includes('partial'))  return '#1a6fa0';
+  if (s.includes('overdue'))  return '#a93226';
+  if (s.includes('received')) return '#1e8449';
+  // NOT YET INFORMED or CLIENT ACTIONING — amber
+  return isDark ? '#d4872a' : '#b8711f';
+}
+
+function showMRDPopover(anchor, m, color) {
+  hideMRDPopover();
+  const status  = getMatStatus(m);
+  const dateStr = m.required_on_site_date
+    ? new Date(m.required_on_site_date).toLocaleDateString('en-GB', {day:'2-digit',month:'2-digit',year:'numeric'})
+    : '—';
+
+  const pop = document.createElement('div');
+  pop.id = 'mrdPopover';
+  pop.className = 'mrd-popover';
+
+  let html = `<div class="mrd-popover-name">${m.material || '—'}</div>`;
+  if (m.area) html += `<div class="mrd-popover-area">${m.area}</div>`;
+  html += `<div class="mrd-popover-row">Required On Site: <strong>${dateStr}</strong></div>`;
+  html += `<div style="margin-top:6px"><span class="status-badge ${status.cls}">${status.label}</span></div>`;
+  pop.innerHTML = html;
+
+  // Place off-screen first to measure height
+  pop.style.top  = '-9999px';
+  pop.style.left = '-9999px';
+  document.body.appendChild(pop);
+
+  const aRect  = anchor.getBoundingClientRect();
+  const pRect  = pop.getBoundingClientRect();
+  const left   = Math.min(aRect.left, window.innerWidth - pRect.width - 10);
+  const top    = aRect.top - pRect.height - 8 + window.scrollY;
+
+  pop.style.left = Math.max(10, left) + 'px';
+  pop.style.top  = top + 'px';
+  pop.style.position = 'fixed';
+  pop.style.top = (aRect.top - pRect.height - 8) + 'px';
+
+  // Dismiss on next tap anywhere
+  setTimeout(() => {
+    document.addEventListener('click', hideMRDPopover, { once: true });
+  }, 10);
+}
+
+function hideMRDPopover() {
+  const p = document.getElementById('mrdPopover');
+  if (p) p.remove();
+}
+
+// ─── PROCUREMENT SCHEDULE ─────────────────────────────────────
+function buildProcurementSection(materials) {
+  const wrap = document.createElement('div');
+  wrap.className = 'procurement-section';
+
+  // Filter to MRD materials (has required_on_site_date)
+  const allMrdMats = materials
+    .filter(m => m.required_on_site_date && m.required_on_site_date.trim())
+    .sort((a, b) => new Date(a.required_on_site_date) - new Date(b.required_on_site_date));
+
+  // Client view: hide RECEIVED
+  const displayMats = isClientView
+    ? allMrdMats.filter(m => !getMatStatus(m).label.includes('RECEIVED'))
+    : allMrdMats;
+
+  // Copy button header (always shown)
+  const hdr = document.createElement('div');
+  hdr.className = 'procurement-header';
+  const copyBtn = document.createElement('button');
+  copyBtn.className = 'hdr-btn';
+  copyBtn.textContent = 'Copy for WhatsApp';
+  copyBtn.onclick = () => copyProcurementWhatsApp(allMrdMats);
+  hdr.appendChild(copyBtn);
+  wrap.appendChild(hdr);
+
+  // Intro line (internal only)
+  if (!isClientView) {
+    const intro = document.createElement('div');
+    intro.className = 'procurement-intro';
+    intro.textContent = 'Client-procured materials only. Received items hidden in client view.';
+    wrap.appendChild(intro);
+  }
+
+  // Empty state
+  if (!displayMats.length) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.style.cssText = 'font-family:\'DM Sans\',sans-serif;font-size:13px';
+    empty.textContent = 'No procurement schedule set up yet. Add material requirement dates in Setup.';
+    wrap.appendChild(empty);
+    return wrap;
+  }
+
+  // Table
+  const table = document.createElement('table');
+  table.className = 'procurement-table';
+
+  const thead = document.createElement('thead');
+  thead.innerHTML = `<tr>
+    <th>Material</th>
+    <th>Area</th>
+    <th>Required On Site</th>
+    <th>Qty</th>
+    <th>Status</th>
+    <th>Notes</th>
+  </tr>`;
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  displayMats.forEach(m => {
+    const status  = getMatStatus(m);
+    const dateStr = m.required_on_site_date
+      ? new Date(m.required_on_site_date).toLocaleDateString('en-GB', {day:'2-digit',month:'2-digit',year:'numeric'})
+      : '—';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="p-name">${m.material || '—'}</td>
+      <td>${m.area || '—'}</td>
+      <td>${dateStr}</td>
+      <td>${m.qty_required || '—'}</td>
+      <td><span class="status-badge ${status.cls}">${status.label}</span></td>
+      <td>${m.notes || '—'}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+
+  return wrap;
+}
+
+function copyProcurementWhatsApp(allMrdMats) {
+  const today   = new Date();
+  const todayStr = `${String(today.getDate()).padStart(2,'0')}/${String(today.getMonth()+1).padStart(2,'0')}/${today.getFullYear()}`;
+  const pName   = (dashData && (dashData.project || currentProject)) || currentProject;
+
+  // Client view excludes RECEIVED
+  const items = isClientView
+    ? allMrdMats.filter(m => !getMatStatus(m).label.includes('RECEIVED'))
+    : allMrdMats;
+
+  let text = `──────────────────────────────\nPROCUREMENT SCHEDULE\n${pName}\n${todayStr}\n──────────────────────────────\n\n`;
+
+  items.forEach((m, i) => {
+    const status  = getMatStatus(m);
+    const area    = m.area ? ` — ${m.area}` : '';
+    const dateStr = m.required_on_site_date
+      ? new Date(m.required_on_site_date).toLocaleDateString('en-GB', {day:'2-digit',month:'2-digit',year:'numeric'})
+      : '—';
+    text += `${i + 1}. ${m.material || '—'}${area}\n`;
+    text += `   Required On Site: ${dateStr}\n`;
+    if (m.qty_required && m.qty_required.trim()) text += `   Qty: ${m.qty_required}\n`;
+    text += `   Status: ${status.label}\n`;
+    if (m.notes && m.notes.trim()) text += `   Notes: ${m.notes}\n`;
+    text += '\n';
+  });
+
+  text += `──────────────────────────────`;
+
+  const doCopy = () => showCopyToast('Copied ✓');
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(doCopy).catch(() => fallbackCopy(text, doCopy));
+  } else {
+    fallbackCopy(text, doCopy);
+  }
+}
+
+function fallbackCopy(text, cb) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); } catch(e) {}
+  ta.remove();
+  if (cb) cb();
+}
+
+function showCopyToast(msg) {
+  let toast = document.getElementById('copyToast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'copyToast';
+    toast.className = 'copy-toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.classList.add('visible');
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => toast.classList.remove('visible'), 1800);
 }
 
 // ─── INIT ─────────────────────────────────────────────────────

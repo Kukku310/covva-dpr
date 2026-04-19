@@ -266,6 +266,8 @@ function doPost(e) {
         try {
           const jsonData = JSON.parse(parsed.jsonText);
           logToMaterials(project, dateFormatted, jsonData);
+          // Intelligent MRD match — best-effort, never blocks voice log save
+          try { matchAndUpdateMRDs(project, jsonData); } catch(mrdErr) { Logger.log('MRD match swallowed: ' + mrdErr.message); }
         } catch(jsonErr) {
           Logger.log('Material JSON parse error: ' + jsonErr.message);
         }
@@ -1338,6 +1340,102 @@ function logToMaterials(project, dateFormatted, data) {
     new Date().toLocaleString('en-IN'),
     '', '', '', '', '', '', '', '', '', ''
   ]);
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  INTELLIGENT MRD MATCH — matchAndUpdateMRDs(project, materialJson)
+//  Called after logToMaterials() for Material Log voice entries.
+//  Matches the logged material name against open MRD rows and
+//  updates their Delivery Status, Last Delivery Note, Last Delivery At.
+//  Best-effort: all errors are caught and logged silently.
+// ═══════════════════════════════════════════════════════════════
+
+function matchAndUpdateMRDs(project, materialJson) {
+  try {
+    var ss      = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var tabName = sanitizeTabName(project) + ' — Materials';
+    var sheet   = ss.getSheetByName(tabName);
+    if (!sheet) return;
+
+    var data = sheet.getDataRange().getValues();
+    if (data.length <= 1) return;
+
+    var headers = data[0];
+
+    // Resolve column indices dynamically from header row
+    function findCol(candidates) {
+      for (var j = 0; j < headers.length; j++) {
+        var h = String(headers[j]).toLowerCase().trim();
+        for (var k = 0; k < candidates.length; k++) {
+          if (h.indexOf(candidates[k]) > -1) return j;
+        }
+      }
+      return -1;
+    }
+
+    var colMaterial    = findCol(['material']);
+    var colRequired    = findCol(['required on site', 'required_on_site']);
+    var colStatus      = findCol(['status']);
+    var colLastNote    = findCol(['last delivery note', 'last_delivery_note']);
+    var colLastAt      = findCol(['last delivery at', 'last_delivery_at']);
+
+    // Need at minimum material and required_on_site columns
+    if (colMaterial < 0 || colRequired < 0) return;
+
+    var loggedMaterial = String(materialJson.material || '').toLowerCase().trim();
+    if (!loggedMaterial) return;
+
+    var today = formatDate(new Date());
+
+    for (var i = 1; i < data.length; i++) {
+      var row = data[i];
+
+      // Skip rows without Required On Site Date — not MRD rows
+      if (!row[colRequired] || String(row[colRequired]).trim() === '') continue;
+
+      // Skip already RECEIVED rows
+      var currentStatus = String(row[colStatus] || '').toLowerCase();
+      if (currentStatus.indexOf('received') > -1) continue;
+
+      var mrdName = String(row[colMaterial] || '').toLowerCase().trim();
+      if (!mrdName) continue;
+
+      // Case-insensitive partial match (bidirectional)
+      var isMatch = mrdName.indexOf(loggedMaterial) > -1 || loggedMaterial.indexOf(mrdName) > -1;
+      if (!isMatch) continue;
+
+      // Determine new status
+      var qtyPending = String(materialJson.qty_pending || '').toLowerCase().trim();
+      var condition  = String(materialJson.condition   || '').toLowerCase();
+
+      var isFullDelivery = (
+        qtyPending === '0' || qtyPending === 'none' || qtyPending === 'nil' || qtyPending === '' ||
+        condition.indexOf('full')         > -1 ||
+        condition.indexOf('complete')     > -1 ||
+        condition.indexOf('all received') > -1
+      );
+      var newStatus = isFullDelivery ? 'RECEIVED' : 'PARTIAL DELIVERY';
+
+      // Build delivery note from voice log fields
+      var noteParts = [];
+      if (materialJson.qty_received)  noteParts.push(materialJson.qty_received + ' received');
+      if (materialJson.condition)     noteParts.push(materialJson.condition);
+      if (materialJson.damage_detail) noteParts.push(materialJson.damage_detail);
+      var lastDeliveryNote = noteParts.join('. ').trim();
+
+      // Write to matched MRD row (only update MRD columns, never touch voice log rows)
+      if (colStatus  >= 0) sheet.getRange(i + 1, colStatus  + 1).setValue(newStatus);
+      if (colLastNote >= 0) sheet.getRange(i + 1, colLastNote + 1).setValue(lastDeliveryNote);
+      if (colLastAt   >= 0) sheet.getRange(i + 1, colLastAt  + 1).setValue(today);
+
+      Logger.log('MRD match updated: ' + mrdName + ' → ' + newStatus);
+      break; // Match first found MRD row only
+    }
+
+  } catch(err) {
+    Logger.log('matchAndUpdateMRDs error: ' + err.message);
+  }
 }
 
 
