@@ -545,11 +545,11 @@ and above the footer.
 
 ### Deployment Checklist Additions (append to existing checklist)
 
-- [ ] setup.html — "Required On Site Date" column added to Client Material Table
-- [ ] Code.gs — Materials tab new columns handled in saveProjectData and serveDashboardData
-- [ ] Code.gs — Intelligent match logic in generateDPR / Material Log flow
-- [ ] Code.gs — Redeployed with new version
-- [ ] dashboard.html — MRD flag markers on Gantt canvas
-- [ ] dashboard.html — Section ⑥ Procurement Schedule with WhatsApp copy
-- [ ] dashboard.html — PDF export includes Procurement Schedule
-- [ ] dashboard.html — Client View rules applied to Section ⑥ (hide RECEIVED)
+- ✅ setup.html — "Required On Site Date" column added to Client Material Table
+- ✅ Code.gs — Materials tab new columns handled in saveProjectData and serveDashboardData
+- ✅ Code.gs — Intelligent match logic in Material Log flow (matchAndUpdateMRDs)
+- ⚠️ Code.gs — Redeployed with new version (manual step required in Apps Script)
+- ✅ dashboard.html — MRD flag markers on Gantt canvas (diamond pins + HTML labels + popovers)
+- ✅ dashboard.html — Section ⑥ Procurement Schedule with WhatsApp copy
+- ✅ dashboard.html — PDF export includes Procurement Schedule
+- ✅ dashboard.html — Client View rules applied to Section ⑥ (hide RECEIVED)
