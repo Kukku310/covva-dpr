@@ -405,6 +405,107 @@ table.edit-table {
   border-top: 1px solid var(--border);
   margin-top: 30px;
 }
+
+/* ── ROLLBACK BUTTON ── */
+.rollback-btn {
+  background: none;
+  border: 1px solid var(--amber);
+  color: var(--amber);
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.3px;
+}
+.rollback-btn:hover { background: var(--amber); color: var(--bg); }
+.tab-actions-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+
+/* ── ROLLBACK MODAL ── */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.modal-overlay.open { display: flex; }
+.modal-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 24px;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+}
+.modal-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 20px;
+  letter-spacing: 2px;
+  color: var(--amber);
+  margin-bottom: 4px;
+}
+.modal-subtitle {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: var(--dim);
+  margin-bottom: 16px;
+}
+.modal-warning {
+  background: var(--amber-glow);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-top: 12px;
+  margin-bottom: 16px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: var(--amber);
+}
+.modal-actions {
+  display: flex;
+  gap: 8px;
+}
+.modal-actions .cancel-btn {
+  flex: 1;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--dim);
+  border-radius: 4px;
+  padding: 10px;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.modal-actions .cancel-btn:hover:not(:disabled) { border-color: var(--amber); color: var(--amber); }
+.modal-actions .cancel-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.modal-actions .confirm-btn {
+  flex: 1;
+  background: var(--amber);
+  border: none;
+  color: var(--bg);
+  border-radius: 4px;
+  padding: 10px;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.modal-actions .confirm-btn:hover:not(:disabled) { background: var(--amber-dim); }
+.modal-actions .confirm-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+@media (max-width: 480px) { .modal-actions { flex-direction: column; } }
+
+/* ── WARNING INLINE-MSG TYPE ── */
+.inline-msg.warning { display: block; color: var(--amber); background: var(--amber-glow); border: 1px solid var(--amber-dim); }
 </style>
 </head>
 <body>
@@ -522,6 +623,9 @@ table.edit-table {
 
       <!-- Activities Tab -->
       <div class="tab-panel active" id="editTab-activities">
+        <div class="tab-actions-row">
+          <button class="rollback-btn" onclick="openRollbackModal()">↩ Rollback Timeline</button>
+        </div>
         <div class="table-wrap">
           <table class="edit-table" id="editActivityTable">
             <thead>
@@ -577,6 +681,23 @@ table.edit-table {
     <div id="editLoadingMsg" style="font-family:'DM Mono',monospace;font-size:12px;color:var(--dim);padding:10px 0;display:none">Loading project data...</div>
   </div>
 
+</div>
+
+<!-- ── ROLLBACK TIMELINE MODAL ── -->
+<div class="modal-overlay" id="rollbackModal" onclick="closeRollbackModalOnOverlay(event)">
+  <div class="modal-panel">
+    <div class="modal-title">Roll Back Timeline Update</div>
+    <div class="modal-subtitle">Select a date to undo all activity changes logged on that day.</div>
+    <div class="field-label">Update Date</div>
+    <select class="field-input" id="rollbackDateSelect" onchange="onRollbackDateChange()">
+      <option value="">Select a date...</option>
+    </select>
+    <div class="modal-warning">⚠ This will undo all timeline changes for the selected date. Once confirmed, the changes cannot be restored automatically.</div>
+    <div class="modal-actions">
+      <button class="cancel-btn" id="rollbackCancelBtn" onclick="closeRollbackModal()">Cancel</button>
+      <button class="confirm-btn" id="rollbackConfirmBtn" onclick="confirmRollback()" disabled>Confirm Rollback</button>
+    </div>
+  </div>
 </div>
 
 <div class="footer">COVVA SITE INTELLIGENCE</div>
@@ -875,10 +996,13 @@ async function loadProjectForEdit(project) {
     const data = await resp.json();
     if (!data.success) throw new Error(data.error || 'Load failed');
 
+    // Store for rollback date extraction
+    _currentActivities = data.activities || [];
+
     // Render Activities
     const actBody = document.getElementById('editActivityBody');
     actBody.innerHTML = '';
-    (data.activities || []).forEach(a => addActivityRow('edit', a));
+    _currentActivities.forEach(a => addActivityRow('edit', a));
 
     // Render Materials
     const matBody = document.getElementById('editMaterialBody');
@@ -976,6 +1100,103 @@ function toDateInput(str) {
     if (isNaN(d)) return '';
     return d.toISOString().substring(0, 10);
   } catch(e) { return ''; }
+}
+
+// ─── ROLLBACK TIMELINE ────────────────────────────────────────
+let _currentActivities = [];
+
+function extractRollbackDates(activities) {
+  // Parses all Delay Log entries across activities to find unique update dates.
+  // Entry format: ① dd MMM yyyy +Xd — reason
+  const dateSet = {};
+  (activities || []).forEach(function(act) {
+    const log = String(act.delay_log || act['Delay Log'] || '');
+    log.split('\n').forEach(function(entry) {
+      const m = entry.match(/①\s+(\d{1,2} [A-Za-z]{3} \d{4})/);
+      if (m) dateSet[m[1]] = true;
+    });
+  });
+  const dates = Object.keys(dateSet);
+  dates.sort(function(a, b) { return new Date(b) - new Date(a); });
+  return dates;
+}
+
+function openRollbackModal() {
+  const dates = extractRollbackDates(_currentActivities);
+  const sel = document.getElementById('rollbackDateSelect');
+  sel.innerHTML = '';
+  if (!dates.length) {
+    const opt = document.createElement('option');
+    opt.value = ''; opt.textContent = 'No timeline updates recorded yet'; opt.disabled = true; opt.selected = true;
+    sel.appendChild(opt);
+    document.getElementById('rollbackConfirmBtn').disabled = true;
+  } else {
+    const placeholder = document.createElement('option');
+    placeholder.value = ''; placeholder.textContent = 'Select a date...';
+    sel.appendChild(placeholder);
+    dates.forEach(function(d) {
+      const opt = document.createElement('option');
+      opt.value = d; opt.textContent = d;
+      sel.appendChild(opt);
+    });
+    document.getElementById('rollbackConfirmBtn').disabled = true;
+  }
+  document.getElementById('rollbackModal').classList.add('open');
+}
+
+function onRollbackDateChange() {
+  const val = document.getElementById('rollbackDateSelect').value;
+  document.getElementById('rollbackConfirmBtn').disabled = !val;
+}
+
+function closeRollbackModal() {
+  document.getElementById('rollbackModal').classList.remove('open');
+}
+
+function closeRollbackModalOnOverlay(e) {
+  if (e.target === document.getElementById('rollbackModal')) closeRollbackModal();
+}
+
+async function confirmRollback() {
+  const project = document.getElementById('editProjectSelector').value;
+  const rollbackDate = document.getElementById('rollbackDateSelect').value;
+  if (!rollbackDate || !project) return;
+
+  const cancelBtn  = document.getElementById('rollbackCancelBtn');
+  const confirmBtn = document.getElementById('rollbackConfirmBtn');
+  confirmBtn.textContent = 'Rolling back…';
+  confirmBtn.disabled = true;
+  cancelBtn.disabled  = true;
+
+  try {
+    const form = new FormData();
+    form.append('action', 'rollbackTimeline');
+    form.append('project', project);
+    form.append('rollbackDate', rollbackDate);
+    const resp = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: form, redirect: 'follow' });
+    const data = await resp.json();
+
+    closeRollbackModal();
+    if (data.success) {
+      const n = data.activitiesAffected || 0;
+      if (n > 0) {
+        showMsg('editActivityMsg', 'success', `✓ Rollback complete — ${n} activit${n === 1 ? 'y' : 'ies'} updated.`);
+      } else {
+        showMsg('editActivityMsg', 'warning', 'No entries found for that date.');
+      }
+      await loadProjectForEdit(project);
+    } else {
+      showMsg('editActivityMsg', 'error', 'Rollback failed. Check Apps Script logs.');
+    }
+  } catch(err) {
+    closeRollbackModal();
+    showMsg('editActivityMsg', 'error', 'Rollback failed: ' + err.message);
+  } finally {
+    const cb = document.getElementById('rollbackConfirmBtn');
+    const xb = document.getElementById('rollbackCancelBtn');
+    if (cb) { cb.textContent = 'Confirm Rollback'; cb.disabled = false; }
+    if (xb) { xb.disabled = false; }
+  }
 }
 
 // ─── INIT ─────────────────────────────────────────────────────

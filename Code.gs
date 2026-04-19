@@ -182,6 +182,12 @@ function doPost(e) {
       return saveDPREditFn(proj, dt, editedTxt);
     }
 
+    if (action === 'rollbackTimeline') {
+      const rbProject = e.parameters && e.parameters.project ? e.parameters.project[0] : '';
+      const rbDate    = e.parameters && e.parameters.rollbackDate ? e.parameters.rollbackDate[0] : '';
+      return rollbackTimeline(rbProject, rbDate);
+    }
+
     if (action === 'resetTimelineAI') {
       let resetProject, resetMode, resetDate;
       if (e.parameters && e.parameters.project) {
@@ -1489,6 +1495,93 @@ function matchAndUpdateMRDs(project, materialJson) {
   } catch(err) {
     Logger.log('matchAndUpdateMRDs error: ' + err.message);
   }
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  PHASE 4 — TIMELINE ROLLBACK
+//  Undoes all Weekly Update entries for a specific date across
+//  every activity row in [Project] — Timeline tab.
+//  Called via doPost action=rollbackTimeline from setup.html.
+// ═══════════════════════════════════════════════════════════════
+
+function rollbackTimeline(project, rollbackDate) {
+  try {
+    if (!project || !rollbackDate) throw new Error('Project and rollbackDate required');
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const safeProject = sanitizeTabName(project);
+    const sheet = ss.getSheetByName(safeProject + ' — Timeline');
+    if (!sheet) return jsonResponse({ success: false, error: 'Timeline tab not found' });
+
+    const data = sheet.getDataRange().getValues();
+    let activitiesAffected = 0;
+
+    for (let i = 1; i < data.length; i++) {
+      try {
+        const rowData = ensureTimelineRowLength(data[i].slice());
+        const delayLog = String(rowData[TIMELINE_COL.DELAY_LOG] || '');
+        const result = removeAllMatchingDelayLogEntries(delayLog, rollbackDate);
+        if (!result.found) continue;
+
+        let currentEnd = normalizeTimelineDate(rowData[TIMELINE_COL.CURRENT_END]);
+        const plannedEnd = normalizeTimelineDate(rowData[TIMELINE_COL.PLANNED_END]);
+        let slippage = Number(rowData[TIMELINE_COL.SLIPPAGE]) || 0;
+
+        if (result.totalDelayDays > 0) {
+          const rolledBack = addTimelineDays(currentEnd, -result.totalDelayDays);
+          if (plannedEnd && rolledBack && rolledBack.getTime() < plannedEnd.getTime()) {
+            currentEnd = plannedEnd;
+            slippage = 0;
+          } else {
+            currentEnd = rolledBack;
+            slippage = Math.max(0, slippage - result.totalDelayDays);
+          }
+        }
+
+        rowData[TIMELINE_COL.CURRENT_END]  = currentEnd ? formatDate(currentEnd) : rowData[TIMELINE_COL.CURRENT_END];
+        rowData[TIMELINE_COL.SLIPPAGE]     = slippage;
+        rowData[TIMELINE_COL.DELAY_LOG]    = result.newDelayLog;
+        rowData[TIMELINE_COL.LAST_UPDATED] = new Date().toLocaleString('en-IN');
+
+        sheet.getRange(i + 1, 1, 1, TIMELINE_HEADERS.length).setValues([ensureTimelineRowLength(rowData)]);
+        activitiesAffected++;
+      } catch (rowErr) {
+        Logger.log('Rollback row error (row ' + (i + 1) + '): ' + rowErr);
+      }
+    }
+
+    Logger.log('Rollback complete — ' + project + ' / ' + rollbackDate + ' / ' + activitiesAffected + ' rows affected');
+    return jsonResponse({ success: true, activitiesAffected: activitiesAffected });
+  } catch (err) {
+    return jsonResponse({ success: false, error: err.message });
+  }
+}
+
+function removeAllMatchingDelayLogEntries(delayLog, dateFormatted) {
+  // Removes ALL Delay Log entries containing dateFormatted, summing their +Xd values.
+  // Returns { found: false } or { found: true, totalDelayDays: N, newDelayLog: '...' }.
+  if (!delayLog || !dateFormatted) return { found: false };
+  const entries = String(delayLog).split('\n');
+  let totalDelayDays = 0;
+  let found = false;
+  const kept = [];
+  for (let i = 0; i < entries.length; i++) {
+    const e = entries[i].trim();
+    if (!e) continue;
+    if (e.indexOf(dateFormatted) > -1) {
+      const dayMatch = e.match(/\+(\d+)d/);
+      totalDelayDays += dayMatch ? Number(dayMatch[1]) : 0;
+      found = true;
+    } else {
+      kept.push(entries[i]);
+    }
+  }
+  if (!found) return { found: false };
+  return {
+    found: true,
+    totalDelayDays: totalDelayDays,
+    newDelayLog: kept.filter(function(s) { return s.trim(); }).join('\n')
+  };
 }
 
 

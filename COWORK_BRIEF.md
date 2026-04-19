@@ -323,9 +323,9 @@ Typical trades on this site:
 **⚠️ Pending:** Apps Script must be redeployed with a new version for the expanded `Code.gs` (new `doGet` routes and `doPost` actions) to go live. Current deployment still runs the previous version.
 - ✅ Code.gs — Phase 3: same-day correction logic in applyTimelineUpdateToRowData + extractSameDayDelayLogEntry helper
 - ⬜ Code.gs — Phase 3: redeployed with new version
-- ⬜ Code.gs — Phase 4: rollbackTimeline() function added + doPost routing
-- ⬜ setup.html — Phase 4: Rollback Timeline button + modal + toast
-- ⬜ Code.gs — Phase 4: redeployed with new version
+- ✅ Code.gs — Phase 4: rollbackTimeline() function added + doPost routing
+- ✅ setup.html — Phase 4: Rollback Timeline button + modal + toast
+- ⚠️ Code.gs — Phase 4: redeployed with new version (manual step required in Apps Script)
 
 ---
 
