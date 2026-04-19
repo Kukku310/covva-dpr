@@ -321,6 +321,11 @@ Typical trades on this site:
 19. ✅ **All files pushed to GitHub** — `index.html`, `dashboard.html`, `setup.html`, `Code.gs` live on `main` branch; GitHub Pages rebuilt and serving all files
 
 **⚠️ Pending:** Apps Script must be redeployed with a new version for the expanded `Code.gs` (new `doGet` routes and `doPost` actions) to go live. Current deployment still runs the previous version.
+- ⬜ Code.gs — Phase 3: same-day correction logic in upsertActivityRow / Weekly Update path
+- ⬜ Code.gs — Phase 3: redeployed with new version
+- ⬜ Code.gs — Phase 4: rollbackTimeline() function added + doPost routing
+- ⬜ setup.html — Phase 4: Rollback Timeline button + modal + toast
+- ⬜ Code.gs — Phase 4: redeployed with new version
 
 ---
 
@@ -553,3 +558,140 @@ and above the footer.
 - ✅ dashboard.html — Section ⑥ Procurement Schedule with WhatsApp copy
 - ✅ dashboard.html — PDF export includes Procurement Schedule
 - ✅ dashboard.html — Client View rules applied to Section ⑥ (hide RECEIVED)
+
+---
+
+## Feature: Phase 3 — Same-Day Weekly Update Correction
+
+### What This Is
+
+The Weekly Update mode (Mon/Tue only) sends a voice recording to Gemini which
+outputs structured JSON containing delay_days per activity. Code.gs reads this
+JSON and writes to the [Project] — Timeline tab — incrementing Total Slippage Days,
+recalculating Current End, and appending to the Delay Log.
+
+The problem: if the supervisor submits a second Weekly Update on the same calendar
+day (to correct a mistake in the first one), the current logic compounds both
+submissions. delay_days from the first run are already written. The second run adds
+on top. This corrupts the timeline.
+
+Phase 3 fixes this with same-day replacement logic.
+
+### Rule
+
+If a Weekly Update JSON is processed for a project and the [Project] — Timeline tab
+already has a Delay Log entry dated TODAY (same dd MMM yyyy date string), the second
+submission REPLACES the first day's update rather than stacking on top of it.
+
+"Same day" is determined by matching the date string in the Delay Log column.
+Format used: dd MMM yyyy (e.g. "19 Apr 2026") — consistent with existing log entries.
+
+### How Replacement Works (per activity row)
+
+When a matching same-day entry is detected:
+
+1. Read the existing Current End and Total Slippage Days for the activity row
+2. Find the today-dated Delay Log entry — format: `① 19/04 +3d — Reason` 
+   (the circled number ① may vary — match by date string, not by position)
+3. Extract the delay_days value from that existing entry (parse the `+Xd` portion)
+4. Subtract those original delay_days from Current End and Total Slippage Days
+   to get back to the pre-today state
+5. Apply the new delay_days from the current submission
+6. Replace the today-dated Delay Log entry with the new one (same position in the
+   log string, or appended if position replacement is too complex — append is
+   acceptable as long as the old today entry is removed)
+
+If the activity has NO today-dated entry in its Delay Log: standard append logic
+applies unchanged. This is a new update for the week, not a correction.
+
+### Scope
+
+- Only applies to Weekly Update mode (PROMPT_WEEKLY path in doPost)
+- Daily Report and Material Log are unaffected
+- Only same-day corrections are handled — no cross-day rollback (that is Phase 4)
+- If the today-date detection or log parsing fails for any reason, fall back to
+  the existing append behaviour and log a warning via Logger.log
+
+### Files to Touch
+
+- Code.gs — upsertActivityRow() or the Weekly Update write path
+  (wherever delay_days are applied to the Timeline tab rows)
+
+### Deployment Note
+
+Requires Apps Script redeploy with new version after Code.gs is updated.
+
+---
+
+## Feature: Phase 4 — Timeline Rollback
+
+### What This Is
+
+An admin-facing feature in setup.html that allows the authorised user (Abhishek)
+to undo a specific Weekly Update from a past date — reverting the timeline to its
+state before that update was applied.
+
+This is needed because manually correcting a corrupt timeline in Google Sheets is
+error-prone — Total Slippage Days, Current End dates, and Delay Log entries across
+multiple activity rows all need to be unwound together. Rollback does this in one tap.
+
+### Where It Lives
+
+setup.html — Section B (Edit Existing Project) — Activities tab.
+
+A new "Rollback Timeline" button appears at the top of the Activities tab, right-aligned,
+styled in amber outline (not filled — this is a destructive action, not a primary action).
+
+### User Flow
+
+1. Admin taps "Rollback Timeline" button
+2. A modal appears:
+   - Title: "Roll Back Timeline Update"
+   - A dropdown showing all dates that have a Delay Log entry in the current project's
+     Timeline tab — populated by reading the Timeline tab and extracting unique dates
+     from all Delay Log columns. Sorted DESC (most recent first).
+   - Warning text: "This will undo all activity changes logged on the selected date.
+     This cannot be undone."
+   - Two buttons: "Cancel" and "Confirm Rollback" (amber filled)
+3. On confirm: calls a new Apps Script action rollbackTimeline(project, date)
+4. Modal closes, Activities tab refreshes with updated data
+5. A success/error toast appears (same style as existing toasts in setup.html)
+
+### How rollbackTimeline Works in Code.gs
+
+For each activity row in [Project] — Timeline tab:
+
+1. Read Delay Log column for this row
+2. Find all log entries dated the selected rollback date
+   Format to match: `① dd/mm — +Xd — Reason` or the existing log format
+   (read existing entries to confirm exact format before parsing)
+3. For each matched entry:
+   a. Parse the delay_days value (the `+Xd` portion)
+   b. Subtract that value from Current End (subtract N calendar days)
+   c. Subtract that value from Total Slippage Days
+   d. Remove the matched log entry from the Delay Log string
+4. If no entries matched for this row: skip (no changes to this row)
+5. Write the updated Current End, Total Slippage Days, and Delay Log back to the row
+
+After all rows processed:
+- Log: Logger.log("Rollback complete for " + project + " date: " + rollbackDate)
+- Return { success: true, activitiesAffected: N }
+
+### Edge Cases to Handle
+
+- An activity has multiple log entries on the same date (two updates same day before
+  Phase 3 was deployed): remove ALL matching entries and subtract ALL their delay values
+- Current End after rollback would be earlier than Planned End: cap at Planned End,
+  set Total Slippage Days to 0
+- Total Slippage Days after subtraction goes negative: set to 0, log a warning
+- Rollback date not found in any activity row: return { success: true, activitiesAffected: 0 }
+  with a "No entries found for that date" toast
+
+### Files to Touch
+
+- Code.gs — new rollbackTimeline() function + doGet/doPost routing for new action
+- setup.html — "Rollback Timeline" button + modal + fetch call to new action
+
+### Deployment Note
+
+Requires Apps Script redeploy with new version after Code.gs is updated.
