@@ -1200,9 +1200,20 @@ async function confirmRollback() {
 }
 
 // ─── INIT ─────────────────────────────────────────────────────
-loadProjectList();
-// Pre-fill today for new project start date
-document.getElementById('newStartDate').value = new Date().toISOString().substring(0,10);
+(async function init() {
+  document.getElementById('newStartDate').value = new Date().toISOString().substring(0,10);
+  await loadProjectList();
+  const param = new URLSearchParams(window.location.search).get('project');
+  if (param) {
+    const sel = document.getElementById('editProjectSelector');
+    sel.value = param;
+    if (sel.value === param) {
+      loadProjectForEdit(param);
+      document.getElementById('editProjectSelector')
+        .scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+})();
 </script>
 </body>
 </html>

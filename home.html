@@ -287,22 +287,31 @@ body {
   border-color: var(--mid);
 }
 
-/* ── SETUP LINK ── */
-.setup-link-wrap {
+/* ── SETUP BUTTON ── */
+.setup-btn-wrap {
+  padding-top: 16px;
+}
+.setup-btn {
+  display: block;
+  width: 100%;
+  padding: 16px 24px;
+  background: transparent;
+  color: var(--amber);
+  border: 1.5px solid var(--amber-dim);
+  border-radius: 6px;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 20px;
+  letter-spacing: 3px;
   text-align: center;
-  padding-top: 8px;
-}
-.setup-link {
-  font-family: 'DM Mono', monospace;
-  font-size: 12px;
-  color: var(--dim);
   text-decoration: none;
-  letter-spacing: 0.5px;
-  border-bottom: 1px dashed var(--border);
-  padding-bottom: 1px;
-  transition: color 0.2s;
+  cursor: pointer;
+  transition: all 0.2s;
 }
-.setup-link:hover { color: var(--amber); border-color: var(--amber-dim); }
+.setup-btn:hover {
+  background: var(--amber);
+  color: var(--bg);
+  border-color: var(--amber);
+}
 </style>
 </head>
 <body>
@@ -321,8 +330,8 @@ body {
   <div id="projectGrid" class="project-grid">
     <div class="state-msg" style="grid-column:1/-1"><span class="loading-dot"></span>Loading projects...</div>
   </div>
-  <div class="setup-link-wrap">
-    <a class="setup-link" href="setup.html">+ Setup New Project</a>
+  <div class="setup-btn-wrap">
+    <a class="setup-btn" href="setup.html">+ Setup New Project</a>
   </div>
 </div>
 
@@ -384,8 +393,9 @@ function buildCard(p) {
     ? `<span class="meta-value">${fmtDate(p.last_dpr_date)}</span>`
     : `<span class="meta-value no-data">None yet</span>`;
 
-  const dashUrl = `dashboard.html?project=${encodeURIComponent(p.name)}`;
-  const dprUrl  = `index.html?project=${encodeURIComponent(p.name)}`;
+  const dashUrl  = `dashboard.html?project=${encodeURIComponent(p.name)}`;
+  const dprUrl   = `index.html?project=${encodeURIComponent(p.name)}`;
+  const setupUrl = `setup.html?project=${encodeURIComponent(p.name)}`;
 
   const card = document.createElement('div');
   card.className = 'project-card';
@@ -407,7 +417,8 @@ function buildCard(p) {
     </div>
     <div class="card-footer">
       <a class="open-btn" href="${dprUrl}">Start DPR</a>
-      <a class="open-btn secondary-btn" href="${dashUrl}">Open Dashboard</a>
+      <a class="open-btn secondary-btn" href="${dashUrl}">Dashboard</a>
+      <a class="open-btn secondary-btn" href="${setupUrl}">Edit Timeline</a>
     </div>
   `;
   return card;
