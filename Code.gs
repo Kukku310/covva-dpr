@@ -766,7 +766,8 @@ function normalizeAudioMimeType(mime) {
   const rawMime = String(mime || '').toLowerCase();
   if (rawMime.indexOf('audio/webm') === 0) return 'audio/webm';
   if (rawMime.indexOf('audio/ogg') === 0) return 'audio/ogg';
-  if (rawMime.indexOf('audio/mp4') === 0 || rawMime.indexOf('audio/m4a') === 0) return 'audio/mp4';
+  if (rawMime.indexOf('audio/mp4') === 0 || rawMime.indexOf('audio/m4a') === 0) return 'audio/aac';
+  if (rawMime.indexOf('video/mp4') === 0) return 'audio/aac';
   if (rawMime.indexOf('audio/mpeg') === 0 || rawMime.indexOf('audio/mp3') === 0) return 'audio/mpeg';
   if (rawMime.indexOf('audio/wav') === 0 || rawMime.indexOf('audio/x-wav') === 0) return 'audio/wav';
   return rawMime || '';
@@ -815,11 +816,8 @@ function formatGeminiError(responseText) {
   try {
     const parsed = JSON.parse(responseText);
     const error = parsed && parsed.error ? parsed.error : null;
-    if (error && error.code === 400) {
-      return 'The audio upload could not be processed. Please delete any clip that looks blank or shows 0:00, then record it again.';
-    }
     if (error && error.message) {
-      return 'Gemini error: ' + error.message;
+      return 'Gemini error (' + (error.code || '?') + '): ' + error.message;
     }
   } catch (err) {
     // Fall through to raw text below.
