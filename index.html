@@ -817,20 +817,21 @@
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunks = [];
 
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : MediaRecorder.isTypeSupported('audio/webm')
-          ? 'audio/webm'
-          : MediaRecorder.isTypeSupported('audio/mp4')
-            ? 'audio/mp4'
-            : 'audio/ogg';
+      const preferredTypes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'];
+      const supportedType = preferredTypes.find(t => MediaRecorder.isTypeSupported(t));
 
-      mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorder = supportedType
+        ? new MediaRecorder(stream, { mimeType: supportedType })
+        : new MediaRecorder(stream);
+
+      // Read back the actual mimeType the browser chose (critical on iOS Safari)
+      const actualMimeType = mediaRecorder.mimeType || supportedType || 'audio/mp4';
+
       mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
       mediaRecorder.onstop = () => {
-        const blob = new Blob(audioChunks, { type: mimeType });
+        const blob = new Blob(audioChunks, { type: actualMimeType });
         stream.getTracks().forEach(t => t.stop());
-        onRecordingComplete(blob, mimeType, seconds);
+        onRecordingComplete(blob, actualMimeType, seconds);
       };
 
       mediaRecorder.start(250);
