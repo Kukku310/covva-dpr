@@ -666,7 +666,7 @@
   const params = new URLSearchParams(window.location.search);
   if (!params.get('project')) { window.location.replace('home.html'); }
   const projectRaw = params.get('project');
-  const projectName = projectRaw.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  const projectName = projectRaw; // Use the name exactly as stored in Sheets — home.html passes encodeURIComponent(p.name)
 
   document.getElementById('projectDisplay').textContent = projectName;
   const now = new Date();
@@ -820,7 +820,10 @@
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? 'audio/webm;codecs=opus'
         : MediaRecorder.isTypeSupported('audio/webm')
-          ? 'audio/webm' : 'audio/ogg';
+          ? 'audio/webm'
+          : MediaRecorder.isTypeSupported('audio/mp4')
+            ? 'audio/mp4'
+            : 'audio/ogg';
 
       mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
@@ -1030,7 +1033,8 @@
   function copyDPR() {
     const text = cleanReportText(document.getElementById('dprOutput').innerText);
     document.getElementById('dprOutput').textContent = text;
-    navigator.clipboard.writeText(text).then(() => {
+
+    const onCopied = () => {
       const btn = document.getElementById('copyBtn');
       btn.textContent = 'Copied ✓';
       btn.classList.add('copied');
@@ -1052,7 +1056,23 @@
 
       // ── Log the current (possibly edited) text to Sheets ──
       logEditedDPR(text, _lastMode, _lastDate || getReportDate(), _lastStructuredData);
-    });
+    };
+
+    const fallbackCopy = () => {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); onCopied(); } catch(e) {}
+      ta.remove();
+    };
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(onCopied).catch(fallbackCopy);
+    } else {
+      fallbackCopy();
+    }
   }
 
   // Logs edited text + mode to Apps Script; shows feedback for weekly mode
