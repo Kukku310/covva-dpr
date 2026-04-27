@@ -419,7 +419,28 @@ function serveProjectList() {
       }
     });
 
-    const projects = projectNames.map(function(name) {
+    // Deduplicate: if a slug-like name (e.g. "modibasement") and a proper-case name
+    // (e.g. "Modi Basement") both exist, keep only the proper-case one.
+    // Canonical key = alphanumeric chars only, lowercased.
+    const seenKeys = {};
+    const dedupedNames = [];
+    projectNames.forEach(function(name) {
+      const key = name.replace(/[^a-z0-9]/gi, '').toLowerCase();
+      if (!seenKeys[key]) {
+        seenKeys[key] = name;
+        dedupedNames.push(name);
+      } else {
+        const existing = seenKeys[key];
+        const nameIsProper = name !== name.toLowerCase() || name.indexOf(' ') > -1;
+        const existingIsProper = existing !== existing.toLowerCase() || existing.indexOf(' ') > -1;
+        if (nameIsProper && !existingIsProper) {
+          dedupedNames[dedupedNames.indexOf(existing)] = name;
+          seenKeys[key] = name;
+        }
+      }
+    });
+
+    const projects = dedupedNames.map(function(name) {
       const info = { name: name, start_date: '', end_date: '', last_dpr_date: '' };
       const timeline = ss.getSheetByName(name + ' ' + enDash + ' Timeline') ||
                        ss.getSheetByName(name + ' ' + emDash + ' Timeline') ||
