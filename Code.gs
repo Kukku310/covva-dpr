@@ -877,6 +877,31 @@ function sanitizeTabName(project) {
   return project.replace(/[^a-zA-Z0-9 ]/g, '').trim();
 }
 
+// Returns the canonical project name already in the spreadsheet, matching
+// case-insensitively without spaces (e.g. "golflinks" → "Golf Links").
+// Falls back to sanitizeTabName(project) if no existing tab matches.
+function canonicalizeProject(ss, project) {
+  const safe = sanitizeTabName(project);
+  const key  = safe.replace(/\s+/g, '').toLowerCase();
+  const enDash = String.fromCharCode(8211);
+  const emDash = String.fromCharCode(8212);
+  const sheets = ss.getSheets();
+  for (var i = 0; i < sheets.length; i++) {
+    var tab = sheets[i].getName();
+    var hasDPR = tab.indexOf(enDash + ' DPR') > -1 ||
+                 tab.indexOf(emDash + ' DPR') > -1 ||
+                 tab.indexOf('- DPR') > -1;
+    if (!hasDPR) continue;
+    var candidate = tab.replace(' ' + enDash + ' DPR', '')
+                       .replace(' ' + emDash + ' DPR', '')
+                       .replace(' - DPR', '').trim();
+    if (sanitizeTabName(candidate).replace(/\s+/g, '').toLowerCase() === key) {
+      return sanitizeTabName(candidate);
+    }
+  }
+  return safe;
+}
+
 
 // ═══════════════════════════════════════════════════════════════
 //  DAILY REPORT LOGGER → [Project] — DPR + MASTER
@@ -884,7 +909,7 @@ function sanitizeTabName(project) {
 
 function logToDPR(project, dateFormatted, dpr) {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const tabName = sanitizeTabName(project) + ' — DPR';
+  const tabName = canonicalizeProject(ss, project) + ' — DPR';
 
   const sheet = getOrCreateTab(ss, tabName,
     ['Date', 'Project', 'Formatted Report', 'Logged At'],
@@ -909,7 +934,7 @@ function logToTimeline(project, dateFormatted, updates, reportDateInput) {
   if (!updates || updates.length === 0) return;
 
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const tabName = sanitizeTabName(project) + ' — Timeline';
+  const tabName = canonicalizeProject(ss, project) + ' — Timeline';
   const reportDate = normalizeTimelineDate(reportDateInput || dateFormatted);
   const reportToken = formatTimelineToken(reportDate);
   const sheet = getOrCreateTab(ss, tabName, TIMELINE_HEADERS, TIMELINE_WIDTHS);
@@ -1390,7 +1415,7 @@ function findLatestTimelineAIToken(sheet) {
 
 function logToMaterials(project, dateFormatted, data) {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const tabName = sanitizeTabName(project) + ' — Materials';
+  const tabName = canonicalizeProject(ss, project) + ' — Materials';
 
   const headers = [
     'Date', 'Material', 'Area', 'Qty Received', 'Condition',
