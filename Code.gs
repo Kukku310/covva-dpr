@@ -182,6 +182,12 @@ function doPost(e) {
       return saveDPREditFn(proj, dt, editedTxt);
     }
 
+    if (action === 'deleteTimelineRow') {
+      const delProject  = e.parameters && e.parameters.project  ? e.parameters.project[0]  : '';
+      const delActivity = e.parameters && e.parameters.activity ? e.parameters.activity[0] : '';
+      return deleteTimelineRowFn(delProject, delActivity);
+    }
+
     if (action === 'rollbackTimeline') {
       const rbProject = e.parameters && e.parameters.project ? e.parameters.project[0] : '';
       const rbDate    = e.parameters && e.parameters.rollbackDate ? e.parameters.rollbackDate[0] : '';
@@ -344,10 +350,15 @@ function serveDashboardData(project) {
       dpr.formatted_report = dpr.report || '';
     });
 
+    // Drop ghost Timeline rows that have no date data at all
+    const validActivities = activities.filter(function(a) {
+      return a.planned_start || a.planned_end || a.current_end;
+    });
+
     const result = {
       success: true,
       project: safeProject,
-      activities: activities,
+      activities: validActivities,
       materials: materials,
       dprs: dprs
     };
@@ -542,6 +553,10 @@ function saveProjectData(payload) {
   }
 }
 
+function normalizeStatusForSheet(s) {
+  return (s || '').toLowerCase().replace(/[\s]+/g, '_').replace(/[^a-z_]/g, '') || 'not_started';
+}
+
 function upsertActivityRow(sheet, act, now) {
   const data = sheet.getDataRange().getValues();
   let foundRow = -1;
@@ -563,7 +578,7 @@ function upsertActivityRow(sheet, act, now) {
       act.planned_start || data[foundRow-1][TIMELINE_COL.PLANNED_START],
       resolvedPlannedEnd,
       resolvedCurrentEnd,
-      act.status        || data[foundRow-1][TIMELINE_COL.STATUS],
+      normalizeStatusForSheet(act.status) || data[foundRow-1][TIMELINE_COL.STATUS],
       data[foundRow-1][TIMELINE_COL.SLIPPAGE] || 0,  // preserve slippage
       data[foundRow-1][TIMELINE_COL.DELAY_LOG] || '',  // preserve delay log
       now,
@@ -575,7 +590,7 @@ function upsertActivityRow(sheet, act, now) {
   } else {
     sheet.appendRow([
       act.activity || '', act.planned_start || '', resolvedPlannedEnd,
-      resolvedCurrentEnd, act.status || 'Not Started', 0, '', now,
+      resolvedCurrentEnd, normalizeStatusForSheet(act.status), 0, '', now,
       overrideFlag, overrideStamp, '', ''
     ]);
   }
@@ -1547,6 +1562,33 @@ function matchAndUpdateMRDs(project, materialJson) {
 //  Undoes all Weekly Update entries for a specific date across
 //  every activity row in [Project] — Timeline tab.
 //  Called via doPost action=rollbackTimeline from setup.html.
+// ═══════════════════════════════════════════════════════════════
+//  DELETE TIMELINE ROW — deleteTimelineRowFn(project, activity)
+//  Removes a single activity row from the Timeline sheet by name.
+// ═══════════════════════════════════════════════════════════════
+
+function deleteTimelineRowFn(project, activity) {
+  try {
+    if (!project || !activity) throw new Error('Project and activity required');
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const safeProject = canonicalizeProject(ss, project);
+    const tabName = safeProject + ' — Timeline';
+    const sheet = ss.getSheetByName(tabName);
+    if (!sheet) throw new Error('Timeline tab not found: ' + tabName);
+    const data = sheet.getDataRange().getValues();
+    const targetKey = normalizeTimelineActivityKey(activity);
+    for (var i = data.length - 1; i >= 1; i--) {
+      if (normalizeTimelineActivityKey(data[i][TIMELINE_COL.ACTIVITY] || '') === targetKey) {
+        sheet.deleteRow(i + 1);
+        return jsonResponse({ success: true });
+      }
+    }
+    throw new Error('Activity not found: ' + activity);
+  } catch(err) {
+    return jsonResponse({ success: false, error: err.message });
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════
 
 function rollbackTimeline(project, rollbackDate) {

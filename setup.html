@@ -725,8 +725,10 @@ const ACT_STATUS_OPTIONS = ['Not Started','In Progress','Completed','Delayed'];
 const MAT_STATUS_OPTIONS = ['Not Yet Informed','Client Actioning','Ordered','Partial Delivery','Received'];
 
 // ─── ADD ACTIVITY ROW ─────────────────────────────────────────
+function normalizeStatusKey(s) { return (s||'').toLowerCase().replace(/[\s_]+/g,''); }
 function activityStatusSelect(val) {
-  return `<select class="td-select">${ACT_STATUS_OPTIONS.map(o => `<option${o===val?' selected':''}>${o}</option>`).join('')}</select>`;
+  const nVal = normalizeStatusKey(val === 'on_track' ? 'in_progress' : val);
+  return `<select class="td-select">${ACT_STATUS_OPTIONS.map(o => `<option${normalizeStatusKey(o)===nVal?' selected':''}>${o}</option>`).join('')}</select>`;
 }
 function materialStatusSelect(val) {
   return `<select class="td-select">${MAT_STATUS_OPTIONS.map(o => `<option${o===val?' selected':''}>${o}</option>`).join('')}</select>`;
@@ -749,7 +751,7 @@ function addActivityRow(context, data) {
       <td><button class="override-chip${d.manual_override?' active':''}" onclick="toggleOverride(this)">${d.manual_override?'OVERRIDDEN':'Override'}</button></td>
       <td style="display:flex;gap:4px;align-items:center;padding:5px 4px">
         <button class="save-row-btn" onclick="saveActivityRow(this, '${context}')">Save</button>
-        <button class="td-del" onclick="this.closest('tr').remove()">✕</button>
+        <button class="td-del" onclick="deleteActivityRow(this)">✕</button>
       </td>
     `;
   } else {
@@ -872,6 +874,35 @@ async function submitNewProject() {
 }
 
 // ─── SAVE ROW ─────────────────────────────────────────────────
+async function deleteActivityRow(btn) {
+  const tr = btn.closest('tr');
+  const activityInput = tr.querySelector('input[type="text"]');
+  const activityName  = activityInput ? activityInput.value.trim() : '';
+  const project = document.getElementById('editProjectSelector').value;
+  if (!activityName) { tr.remove(); return; }
+  btn.disabled = true;
+  btn.textContent = '…';
+  try {
+    const form = new FormData();
+    form.append('action',   'deleteTimelineRow');
+    form.append('project',  project);
+    form.append('activity', activityName);
+    const resp = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: form, redirect: 'follow' });
+    const data = await resp.json();
+    if (data.success) {
+      tr.remove();
+    } else {
+      btn.disabled = false;
+      btn.textContent = '✕';
+      alert('Delete failed: ' + (data.error || 'unknown error'));
+    }
+  } catch(err) {
+    btn.disabled = false;
+    btn.textContent = '✕';
+    alert('Delete failed: ' + err.message);
+  }
+}
+
 async function saveActivityRow(btn, context) {
   const tr = btn.closest('tr');
   const inputs = tr.querySelectorAll('input, select');
