@@ -742,13 +742,15 @@ function addActivityRow(context, data) {
 
   if (context === 'edit') {
     const d = data || {};
+    const originalActivity = d.activity || d['Activity'] || '';
+    tr.dataset.originalActivity = originalActivity;
     tr.innerHTML = `
-      <td><input class="td-input" type="text" value="${esc(d.activity||d['Activity']||'')}" placeholder="Activity name"></td>
+      <td><input class="td-input" type="text" value="${esc(originalActivity)}" placeholder="Activity name"></td>
       <td><input class="td-input" type="date" value="${toDateInput(d.planned_start||d['Planned Start']||'')}"></td>
       <td><input class="td-input" type="date" value="${toDateInput(d.planned_end||d['Planned End']||'')}"></td>
       <td><input class="td-input" type="date" value="${toDateInput(d.current_end||d['Current End']||'')}"></td>
       <td>${activityStatusSelect(d.status||d['Status']||'Not Started')}</td>
-      <td><button class="override-chip${d.manual_override?' active':''}" onclick="toggleOverride(this)">${d.manual_override?'OVERRIDDEN':'Override'}</button></td>
+      <td><button class="override-chip${isOverrideOn(d.manual_override||d['Manual Override'])?' active':''}" onclick="toggleOverride(this)" title="Lock this row from automatic timeline updates">${isOverrideOn(d.manual_override||d['Manual Override'])?'OVERRIDDEN':'Override'}</button></td>
       <td style="display:flex;gap:4px;align-items:center;padding:5px 4px">
         <button class="save-row-btn" onclick="saveActivityRow(this, '${context}')">Save</button>
         <button class="td-del" onclick="deleteActivityRow(this)">✕</button>
@@ -774,8 +776,10 @@ function addMaterialRow(context, data) {
 
   if (context === 'edit') {
     const d = data || {};
+    const originalMaterial = d.material || d['Material'] || '';
+    tr.dataset.originalMaterial = originalMaterial;
     tr.innerHTML = `
-      <td><input class="td-input" type="text" value="${esc(d.material||d['Material']||'')}" placeholder="Material name"></td>
+      <td><input class="td-input" type="text" value="${esc(originalMaterial)}" placeholder="Material name"></td>
       <td><input class="td-input" type="text" value="${esc(d.area||d['Area']||'')}"></td>
       <td><input class="td-input" type="date" value="${toDateInput(d.required_on_site_date||d['Required On Site Date']||'')}"></td>
       <td><input class="td-input" type="text" value="${esc(d.qty_required||d['Qty Required']||'')}" placeholder="e.g. 850 sqft"></td>
@@ -783,7 +787,7 @@ function addMaterialRow(context, data) {
       <td><input class="td-input" type="date" value="${toDateInput(d.target_date||d['Target Date']||'')}"></td>
       <td>${materialStatusSelect(d.status||d['Status']||'Not Yet Informed')}</td>
       <td><input class="td-input" type="text" value="${esc(d.notes||d['Notes']||'')}"></td>
-      <td><button class="override-chip${d.manual_override?' active':''}" onclick="toggleOverride(this)">${d.manual_override?'OVERRIDDEN':'Override'}</button></td>
+      <td><button class="override-chip${isOverrideOn(d.manual_override||d['Manual Override'])?' active':''}" onclick="toggleOverride(this)" title="Lock this row from automatic material updates">${isOverrideOn(d.manual_override||d['Manual Override'])?'OVERRIDDEN':'Override'}</button></td>
       <td style="display:flex;gap:4px;align-items:center;padding:5px 4px">
         <button class="save-row-btn" onclick="saveMaterialRow(this, '${context}')">Save</button>
         <button class="td-del" onclick="this.closest('tr').remove()">✕</button>
@@ -809,6 +813,18 @@ function addMaterialRow(context, data) {
 function toggleOverride(btn) {
   btn.classList.toggle('active');
   btn.textContent = btn.classList.contains('active') ? 'OVERRIDDEN' : 'Override';
+}
+
+function isOverrideOn(value) {
+  const normalized = String(value || '').toLowerCase().trim();
+  return normalized === 'yes' || normalized === 'true' || normalized === 'overridden';
+}
+
+function signalTimelineChanged(project) {
+  try {
+    localStorage.setItem('covva-timeline-edit-project', project || '');
+    localStorage.setItem('covva-timeline-edit-ts', Date.now().toString());
+  } catch(e) {}
 }
 
 // ─── COLLECT TABLE DATA ───────────────────────────────────────
@@ -908,6 +924,16 @@ async function saveActivityRow(btn, context) {
   const inputs = tr.querySelectorAll('input, select');
   const overrideChip = tr.querySelector('.override-chip');
   const project = document.getElementById('editProjectSelector').value;
+  const activityName = inputs[0].value.trim();
+
+  if (!project) {
+    showMsg('editActivityMsg', 'error', 'Select a project before saving.');
+    return;
+  }
+  if (!activityName) {
+    showMsg('editActivityMsg', 'error', 'Activity name is required.');
+    return;
+  }
 
   const plannedEndVal = inputs[2].value;
   const currentEndVal = inputs[3].value || plannedEndVal; // default to Planned End if empty
@@ -916,7 +942,8 @@ async function saveActivityRow(btn, context) {
     action: 'saveProjectData',
     project,
     updateType: 'activity',
-    activity: inputs[0].value,
+    original_activity: tr.dataset.originalActivity || activityName,
+    activity: activityName,
     planned_start: inputs[1].value,
     planned_end: plannedEndVal,
     current_end: currentEndVal,
@@ -932,6 +959,8 @@ async function saveActivityRow(btn, context) {
     const resp = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: form, redirect: 'follow' });
     const data = await resp.json();
     if (data.success) {
+      tr.dataset.originalActivity = activityName;
+      signalTimelineChanged(project);
       btn.textContent = '✓ Saved';
       btn.classList.add('saved');
       setTimeout(() => { btn.textContent = 'Save'; btn.classList.remove('saved'); }, 2000);
@@ -948,12 +977,23 @@ async function saveMaterialRow(btn, context) {
   const inputs = tr.querySelectorAll('input, select');
   const overrideChip = tr.querySelector('.override-chip');
   const project = document.getElementById('editProjectSelector').value;
+  const materialName = inputs[0].value.trim();
+
+  if (!project) {
+    showMsg('editMaterialMsg', 'error', 'Select a project before saving.');
+    return;
+  }
+  if (!materialName) {
+    showMsg('editMaterialMsg', 'error', 'Material name is required.');
+    return;
+  }
 
   const rowData = {
     action: 'saveProjectData',
     project,
     updateType: 'material',
-    material: inputs[0].value,
+    original_material: tr.dataset.originalMaterial || materialName,
+    material: materialName,
     area: inputs[1].value,
     required_on_site_date: inputs[2].value,
     qty_required: inputs[3].value,
@@ -972,6 +1012,8 @@ async function saveMaterialRow(btn, context) {
     const resp = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: form, redirect: 'follow' });
     const data = await resp.json();
     if (data.success) {
+      tr.dataset.originalMaterial = materialName;
+      signalTimelineChanged(project);
       btn.textContent = '✓ Saved';
       btn.classList.add('saved');
       setTimeout(() => { btn.textContent = 'Save'; btn.classList.remove('saved'); }, 2000);

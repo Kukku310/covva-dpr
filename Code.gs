@@ -326,7 +326,7 @@ function doGet(e) {
 function serveDashboardData(project) {
   try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const safeProject = sanitizeTabName(project);
+    const safeProject = canonicalizeProject(ss, project);
 
     const activities = readTab(ss, safeProject + ' — Timeline', [
       'activity', 'planned_start', 'planned_end', 'current_end',
@@ -378,7 +378,7 @@ function serveDashboardData(project) {
 function serveSetupData(project) {
   try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const safeProject = sanitizeTabName(project);
+    const safeProject = canonicalizeProject(ss, project);
 
     const activities = readTabRaw(ss, safeProject + ' — Timeline');
     const materials  = readTabRaw(ss, safeProject + ' — Materials');
@@ -503,7 +503,7 @@ function serveProjectList() {
 function saveProjectData(payload) {
   try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const project = sanitizeTabName(payload.project || '');
+    const project = canonicalizeProject(ss, payload.project || '');
     if (!project) throw new Error('Project name required');
 
     const now = new Date().toLocaleString('en-IN');
@@ -561,16 +561,24 @@ function upsertActivityRow(sheet, act, now) {
   const data = sheet.getDataRange().getValues();
   let foundRow = -1;
   const actName = normalizeTimelineActivityKey(act.activity || '');
+  const originalActName = normalizeTimelineActivityKey(act.original_activity || '');
   for (let i = 1; i < data.length; i++) {
-    if (normalizeTimelineActivityKey(data[i][TIMELINE_COL.ACTIVITY] || '') === actName) { foundRow = i + 1; break; }
+    const rowKey = normalizeTimelineActivityKey(data[i][TIMELINE_COL.ACTIVITY] || '');
+    if ((originalActName && rowKey === originalActName) || rowKey === actName) { foundRow = i + 1; break; }
   }
 
   const overrideFlag  = act.manual_override ? 'YES' : '';
-  const overrideStamp = act.manual_override ? now : '';
+  const existingOverrideStamp = foundRow > 0 ? data[foundRow-1][TIMELINE_COL.OVERRIDE_TIMESTAMP] : '';
+  const overrideStamp = act.manual_override ? (existingOverrideStamp || now) : '';
 
   // If current_end is empty, default to planned_end — never mandatory at row creation
   const resolvedPlannedEnd = act.planned_end || (foundRow > 0 ? data[foundRow-1][2] : '');
   const resolvedCurrentEnd = act.current_end || (foundRow > 0 ? data[foundRow-1][3] : '') || resolvedPlannedEnd;
+  const plannedEndDate = normalizeTimelineDate(resolvedPlannedEnd);
+  const currentEndDate = normalizeTimelineDate(resolvedCurrentEnd);
+  const manualSlippage = plannedEndDate && currentEndDate
+    ? Math.max(0, daysBetweenTimelineDates(plannedEndDate, currentEndDate))
+    : (foundRow > 0 ? data[foundRow-1][TIMELINE_COL.SLIPPAGE] || 0 : 0);
 
   if (foundRow > 0) {
     sheet.getRange(foundRow, 1, 1, TIMELINE_HEADERS.length).setValues([[
@@ -579,7 +587,7 @@ function upsertActivityRow(sheet, act, now) {
       resolvedPlannedEnd,
       resolvedCurrentEnd,
       normalizeStatusForSheet(act.status) || data[foundRow-1][TIMELINE_COL.STATUS],
-      data[foundRow-1][TIMELINE_COL.SLIPPAGE] || 0,  // preserve slippage
+      manualSlippage,
       data[foundRow-1][TIMELINE_COL.DELAY_LOG] || '',  // preserve delay log
       now,
       overrideFlag,
@@ -590,7 +598,7 @@ function upsertActivityRow(sheet, act, now) {
   } else {
     sheet.appendRow([
       act.activity || '', act.planned_start || '', resolvedPlannedEnd,
-      resolvedCurrentEnd, normalizeStatusForSheet(act.status), 0, '', now,
+      resolvedCurrentEnd, normalizeStatusForSheet(act.status), manualSlippage, '', now,
       overrideFlag, overrideStamp, '', ''
     ]);
   }
@@ -600,8 +608,10 @@ function upsertMaterialRow(sheet, mat, now) {
   const data = sheet.getDataRange().getValues();
   let foundRow = -1;
   const matName = String(mat.material || '').toLowerCase().trim();
+  const originalMatName = String(mat.original_material || '').toLowerCase().trim();
   for (let i = 1; i < data.length; i++) {
-    if (String(data[i][1]).toLowerCase().trim() === matName) { foundRow = i + 1; break; }
+    const rowName = String(data[i][1]).toLowerCase().trim();
+    if ((originalMatName && rowName === originalMatName) || rowName === matName) { foundRow = i + 1; break; }
   }
 
   const overrideFlag  = mat.manual_override ? 'YES' : '';
@@ -956,9 +966,14 @@ function logToTimeline(project, dateFormatted, updates, reportDateInput) {
 
   updates.forEach(function(update) {
     const loggedAt = new Date().toLocaleString('en-IN');
-    undoTimelineReportTokenForActivity(sheet, update.activity, reportToken);
-
     let rowMatch = findTimelineRowMatch(sheet, update.activity);
+    if (rowMatch && String(rowMatch.rowData[TIMELINE_COL.MANUAL_OVERRIDE] || '').toUpperCase() === 'YES') {
+      Logger.log('Timeline update skipped for manual override: ' + (update.activity || ''));
+      return;
+    }
+
+    undoTimelineReportTokenForActivity(sheet, update.activity, reportToken);
+    rowMatch = findTimelineRowMatch(sheet, update.activity);
     let existingRow = rowMatch ? rowMatch.rowNumber : 0;
     let rowData = rowMatch ? rowMatch.rowData : null;
     const beforeSnapshot = createTimelineSnapshot(existingRow, rowData);

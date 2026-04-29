@@ -922,7 +922,7 @@ async function loadDashboard() {
     '<div class="loading-state"><span class="loading-dot"></span> Loading project data...</div>';
 
   try {
-    const url = `${APPS_SCRIPT_URL}?action=dashboardData&project=${encodeURIComponent(currentProject)}`;
+    const url = `${APPS_SCRIPT_URL}?action=dashboardData&project=${encodeURIComponent(currentProject)}&_ts=${Date.now()}`;
     const resp = await fetch(url, { redirect: 'follow' });
     const data = await resp.json();
     if (!data.success) throw new Error(data.error || 'Load failed');
@@ -2230,15 +2230,31 @@ function showCopyToast(msg) {
   toast._timer = setTimeout(() => toast.classList.remove('visible'), 1800);
 }
 
-// ─── ROLLBACK SYNC ────────────────────────────────────────────
+// ─── TIMELINE SYNC ────────────────────────────────────────────
+function shouldReloadForProject(project) {
+  return !project || !currentProject ||
+    project.replace(/\s+/g, '').toLowerCase() === currentProject.replace(/\s+/g, '').toLowerCase();
+}
+
 window.addEventListener('storage', (e) => {
   if (e.key === 'covva-rollback-ts' && dashData) loadDashboard();
+  if (e.key === 'covva-timeline-edit-ts' && dashData) {
+    let changedProject = '';
+    try { changedProject = localStorage.getItem('covva-timeline-edit-project') || ''; } catch(err) {}
+    if (shouldReloadForProject(changedProject)) loadDashboard();
+  }
 });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden || !dashData) return;
   try {
     const rollbackTs = Number(localStorage.getItem('covva-rollback-ts') || 0);
-    if (rollbackTs > (dashData._loadedAt || 0)) loadDashboard();
+    const editTs = Number(localStorage.getItem('covva-timeline-edit-ts') || 0);
+    const editProject = localStorage.getItem('covva-timeline-edit-project') || '';
+    if (rollbackTs > (dashData._loadedAt || 0)) {
+      loadDashboard();
+    } else if (editTs > (dashData._loadedAt || 0) && shouldReloadForProject(editProject)) {
+      loadDashboard();
+    }
   } catch(e) {}
 });
 
