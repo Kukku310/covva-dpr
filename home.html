@@ -287,6 +287,84 @@ body {
   border-color: var(--mid);
 }
 
+/* ── TIMELINE TOGGLE ── */
+.timeline-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 0 5px;
+  border-top: 1px solid var(--border);
+  margin-top: 2px;
+}
+
+.tl-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+
+.tl-auto-badge {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  color: var(--green);
+  letter-spacing: 0.5px;
+  background: rgba(30,132,73,0.1);
+  border: 1px solid rgba(30,132,73,0.2);
+  border-radius: 3px;
+  padding: 2px 7px;
+}
+
+.tl-toggle-wrap {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.tl-state-text {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--dim);
+  min-width: 22px;
+  text-align: right;
+  transition: color 0.2s;
+}
+.tl-state-text.is-on { color: var(--amber); }
+
+.tl-switch {
+  position: relative;
+  width: 34px;
+  height: 18px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.tl-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+.tl-track {
+  position: absolute;
+  inset: 0;
+  border-radius: 9px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  transition: background 0.2s, border-color 0.2s;
+}
+.tl-switch input:checked + .tl-track {
+  background: var(--amber);
+  border-color: var(--amber-dim);
+}
+.tl-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.18);
+  transition: transform 0.2s;
+}
+.tl-switch input:checked + .tl-track .tl-thumb { transform: translateX(16px); }
+
 /* ── SETUP BUTTON ── */
 .setup-btn-wrap {
   padding-top: 16px;
@@ -374,6 +452,37 @@ function isCompleted(endIso) {
   return new Date(endIso) < new Date();
 }
 
+// ── TIMELINE TOGGLE HELPERS ────────────────────────────────────
+function tlKey(projectName) {
+  const d = new Date();
+  const dateStr = d.getFullYear() + '-' +
+    String(d.getMonth() + 1).padStart(2, '0') + '-' +
+    String(d.getDate()).padStart(2, '0');
+  return 'covva-timeline-' + projectName + '-' + dateStr;
+}
+
+function isMondayOrTuesday() {
+  const dow = new Date().getDay(); // 0=Sun,1=Mon,2=Tue
+  return dow === 1 || dow === 2;
+}
+
+function getTimelineActive(projectName) {
+  if (isMondayOrTuesday()) return true;
+  try { return localStorage.getItem(tlKey(projectName)) === 'true'; } catch(e) { return false; }
+}
+
+function setTimelineActive(projectName, val) {
+  try { localStorage.setItem(tlKey(projectName), val ? 'true' : 'false'); } catch(e) {}
+}
+
+function toggleTimeline(projectName, checkbox) {
+  const active = checkbox.checked;
+  setTimelineActive(projectName, active);
+  const stateEl = checkbox.closest('.tl-toggle-wrap').querySelector('.tl-state-text');
+  stateEl.textContent = active ? 'On' : 'Off';
+  stateEl.classList.toggle('is-on', active);
+}
+
 // ── RENDER CARD ────────────────────────────────────────────────
 function buildCard(p) {
   const progress  = dayXofY(p.start_date, p.end_date);
@@ -397,6 +506,27 @@ function buildCard(p) {
   const dprUrl   = `index.html?project=${encodeURIComponent(p.name)}`;
   const setupUrl = `setup.html?project=${encodeURIComponent(p.name)}`;
 
+  const autoOn    = isMondayOrTuesday();
+  const tlActive  = getTimelineActive(p.name);
+  const safeId    = 'tl-' + p.name.replace(/[^a-zA-Z0-9]/g, '_');
+
+  const timelineToggleHtml = autoOn
+    ? `<div class="timeline-toggle-row">
+         <span class="tl-label">Timeline Update</span>
+         <span class="tl-auto-badge">Auto On · Mon–Tue</span>
+       </div>`
+    : `<div class="timeline-toggle-row">
+         <span class="tl-label">Timeline Update</span>
+         <div class="tl-toggle-wrap">
+           <span class="tl-state-text${tlActive ? ' is-on' : ''}">${tlActive ? 'On' : 'Off'}</span>
+           <label class="tl-switch" title="Toggle timeline update for today">
+             <input type="checkbox" id="${safeId}" ${tlActive ? 'checked' : ''}
+               onchange="toggleTimeline(${JSON.stringify(p.name)}, this)">
+             <div class="tl-track"><div class="tl-thumb"></div></div>
+           </label>
+         </div>
+       </div>`;
+
   const card = document.createElement('div');
   card.className = 'project-card';
   card.innerHTML = `
@@ -415,6 +545,7 @@ function buildCard(p) {
         ${lastDPR}
       </div>
     </div>
+    ${timelineToggleHtml}
     <div class="card-footer">
       <a class="open-btn" href="${dprUrl}">Start DPR</a>
       <a class="open-btn secondary-btn" href="${dashUrl}">Dashboard</a>
