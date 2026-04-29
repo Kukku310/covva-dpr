@@ -2213,11 +2213,57 @@ function fmtDateShort(d) {
 
 function parseSheetDate(value) {
   if (!value) return null;
-  const parsed = value instanceof Date ? value : new Date(value);
+
+  // Already a JS Date object
+  if (value instanceof Date) {
+    if (isNaN(value)) return null;
+    // Extract LOCAL date parts to avoid tz shift
+    return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+  }
+
+  const str = String(value).trim();
+
+  // UTC ISO string from Apps Script: "2026-04-29T18:30:00.000Z"
+  // This is actually the next calendar day in IST (UTC+5:30)
+  // so we add the IST offset before extracting the date
+  const utcIso = str.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})\.?\d*Z$/);
+  if (utcIso) {
+    const utcMs = new Date(str).getTime();
+    const istMs = utcMs + (5.5 * 60 * 60 * 1000); // add IST offset
+    const istDate = new Date(istMs);
+    return new Date(istDate.getUTCFullYear(), istDate.getUTCMonth(), istDate.getUTCDate());
+  }
+
+  // Plain ISO date string: "2026-05-10" — parse as LOCAL, not UTC
+  const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) {
+    return new Date(Number(isoMatch[1]), Number(isoMatch[2]) - 1, Number(isoMatch[3]));
+  }
+
+  // ISO with time but no Z (local): "2026-05-10T00:00:00"
+  const isoLocal = str.match(/^(\d{4})-(\d{2})-(\d{2})T/);
+  if (isoLocal) {
+    return new Date(Number(isoLocal[1]), Number(isoLocal[2]) - 1, Number(isoLocal[3]));
+  }
+
+  // DD/MM/YYYY
+  const dmyMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (dmyMatch) {
+    return new Date(Number(dmyMatch[3]), Number(dmyMatch[2]) - 1, Number(dmyMatch[1]));
+  }
+
+  // Numeric serial (Google Sheets date serial — days since Dec 30 1899)
+  if (/^\d+$/.test(str)) {
+    const serial = Number(str);
+    const msPerDay = 86400000;
+    const epoch = new Date(1899, 11, 30).getTime();
+    return new Date(epoch + serial * msPerDay);
+  }
+
+  // Fallback — strip time to avoid tz issues
+  const parsed = new Date(str);
   if (isNaN(parsed)) return null;
-  const key = parsed.toISOString().slice(0, 10);
-  const parts = key.split('-').map(Number);
-  return new Date(parts[0], parts[1] - 1, parts[2]);
+  return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
 }
 
 function compareSheetDates(a, b) {

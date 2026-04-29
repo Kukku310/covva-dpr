@@ -753,6 +753,22 @@ function saveDPREditFn(project, date, editedText) {
 //  READ HELPERS
 // ═══════════════════════════════════════════════════════════════
 
+/**
+ * Format a Date (or date-like value) as DD/MM/YYYY in IST.
+ * Apps Script Date objects are UTC internally; adding the IST offset
+ * before reading UTC parts gives the correct local calendar date.
+ */
+function formatDateDMY(val) {
+  if (!val) return '';
+  var d = (val instanceof Date) ? val : new Date(val);
+  if (isNaN(d)) return '';
+  var ist = new Date(d.getTime() + (5.5 * 60 * 60 * 1000));
+  var dd  = String(ist.getUTCDate()).padStart(2, '0');
+  var mm  = String(ist.getUTCMonth() + 1).padStart(2, '0');
+  var yyyy = ist.getUTCFullYear();
+  return dd + '/' + mm + '/' + yyyy;
+}
+
 function readTab(ss, tabName, fieldNames) {
   const sheet = ss.getSheetByName(tabName);
   if (!sheet) return [];
@@ -761,7 +777,8 @@ function readTab(ss, tabName, fieldNames) {
   return data.slice(1).map(function(row) {
     const obj = {};
     fieldNames.forEach(function(f, i) {
-      obj[f] = row[i] !== undefined ? String(row[i]) : '';
+      var val = row[i];
+      obj[f] = (val instanceof Date) ? formatDateDMY(val) : (val !== undefined ? String(val) : '');
     });
     return obj;
   });
@@ -777,8 +794,10 @@ function readTabRaw(ss, tabName) {
     const obj = {};
     headers.forEach(function(h, i) {
       const key = String(h).toLowerCase().trim().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-      obj[key] = row[i] !== undefined ? String(row[i]) : '';
-      obj[h] = obj[key]; // also keep original header key
+      var val = row[i];
+      var strVal = (val instanceof Date) ? formatDateDMY(val) : (val !== undefined ? String(val) : '');
+      obj[key] = strVal;
+      obj[h] = strVal; // also keep original header key
     });
     return obj;
   });

@@ -1340,9 +1340,28 @@ function esc(str) {
 function toDateInput(str) {
   if (!str) return '';
   try {
+    const s = String(str).trim();
+    // UTC ISO string from Apps Script → add IST offset before extracting date
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/.test(s)) {
+      const istMs = new Date(s).getTime() + (5.5 * 60 * 60 * 1000);
+      const d = new Date(istMs);
+      return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
+    }
+    // Already YYYY-MM-DD
+    const isoMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+    // DD/MM/YYYY
+    const dmyMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (dmyMatch) {
+      return `${dmyMatch[3]}-${String(dmyMatch[2]).padStart(2,'0')}-${String(dmyMatch[1]).padStart(2,'0')}`;
+    }
+    // Fallback: parse as local date
     const d = new Date(str);
-    if (isNaN(d)) return '';
-    return d.toISOString().substring(0, 10);
+    if (!isNaN(d)) {
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate())
+        .toISOString().substring(0, 10);
+    }
+    return '';
   } catch(e) { return ''; }
 }
 
