@@ -893,8 +893,13 @@ async function submitNewProject() {
 async function deleteActivityRow(btn) {
   const tr = btn.closest('tr');
   const activityInput = tr.querySelector('input[type="text"]');
-  const activityName  = activityInput ? activityInput.value.trim() : '';
+  const visibleName   = activityInput ? activityInput.value.trim() : '';
+  const activityName  = tr.dataset.originalActivity || visibleName;
   const project = document.getElementById('editProjectSelector').value;
+  if (!project) {
+    showMsg('editActivityMsg', 'error', 'Select a project before deleting.');
+    return;
+  }
   if (!activityName) { tr.remove(); return; }
   btn.disabled = true;
   btn.textContent = '…';
@@ -907,6 +912,7 @@ async function deleteActivityRow(btn) {
     const data = await resp.json();
     if (data.success) {
       tr.remove();
+      signalTimelineChanged(project);
     } else {
       btn.disabled = false;
       btn.textContent = '✕';
