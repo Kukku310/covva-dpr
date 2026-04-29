@@ -1886,18 +1886,19 @@ function buildFlags(activities, materials, drawings, today) {
   });
 
   materials.forEach(m => {
-    if (m.target_date && new Date(m.target_date) < today) {
-      const overdueDays = Math.round((today - new Date(m.target_date)) / 86400000);
-      flags.push({ icon: '🔴', title: `Overdue client material — ${m.material || m.name}`, detail: `Target: ${m.target_date} · ${overdueDays} day${overdueDays > 1 ? 's' : ''} overdue`, type: 'overdue' });
+    const mtd = parseSheetDate(m.target_date);
+    if (mtd && mtd < today) {
+      const overdueDays = Math.round((today - mtd) / 86400000);
+      flags.push({ icon: '🔴', title: `Overdue client material — ${m.material || m.name}`, detail: `Target: ${fmtDate(m.target_date)} · ${overdueDays} day${overdueDays > 1 ? 's' : ''} overdue`, type: 'overdue' });
     }
   });
 
   drawings.forEach(drw => {
-    if (drw.required_by_date && new Date(drw.required_by_date) < today
-        && (drw.status || '').toLowerCase().trim() !== 'received') {
-      const overdueDays = Math.round((today - new Date(drw.required_by_date)) / 86400000);
+    const drd = parseSheetDate(drw.required_by_date);
+    if (drd && drd < today && (drw.status || '').toLowerCase().trim() !== 'received') {
+      const overdueDays = Math.round((today - drd) / 86400000);
       flags.push({ icon: '🟣', title: `Drawing overdue — ${drw.drawing_name}`,
-        detail: `Required by: ${drw.required_by_date} · ${overdueDays} day(s) overdue`,
+        detail: `Required by: ${fmtDate(drw.required_by_date)} · ${overdueDays} day(s) overdue`,
         type: 'drw_overdue' });
     }
   });
@@ -2054,8 +2055,8 @@ function buildPDFGanttFromData(activities, today) {
   // MRD markers (PDF — always light mode colours)
   const pdfMrdMats = (dashData && dashData.materials || []).filter(m => {
     if (!m.required_on_site_date || !m.required_on_site_date.trim()) return false;
-    const d = new Date(m.required_on_site_date);
-    if (isNaN(d)) return false;
+    const d = parseSheetDate(m.required_on_site_date);
+    if (!d || isNaN(d.getTime())) return false;
     // PDF = client view rules: hide RECEIVED
     const s = (m.status || '').toLowerCase();
     if (s.includes('received')) return false;
@@ -2082,7 +2083,7 @@ function buildPDFGanttFromData(activities, today) {
     const pdfMrdCtx = pdfMrdCanvas.getContext('2d');
 
     pdfMrdMats.forEach(m => {
-      const mDate = new Date(m.required_on_site_date);
+      const mDate = parseSheetDate(m.required_on_site_date);
       const mx    = Math.round((mDate - minD) / 86400000) * PX_DAY;
       const col   = getMRDColor(m, false); // always light mode for PDF
       const cy    = 7; const sz = 4;
@@ -2110,7 +2111,7 @@ function buildPDFGanttFromData(activities, today) {
     const pdfMrdLblTrack = document.createElement('div');
     pdfMrdLblTrack.style.cssText = `position:relative;width:${chartW}px;height:14px;flex-shrink:0;overflow:visible`;
     pdfMrdMats.forEach(m => {
-      const mDate = new Date(m.required_on_site_date);
+      const mDate = parseSheetDate(m.required_on_site_date);
       const mx    = Math.round((mDate - minD) / 86400000) * PX_DAY;
       const col   = getMRDColor(m, false);
       const raw   = m.material || '';
@@ -2173,7 +2174,7 @@ function openPDFModal() {
   let matsHtml = pendingMats.length
     ? pendingMats.map(m => {
         const s = getMatStatus(m);
-        return `<div style="padding:6px 0;border-bottom:1px solid #f0ece6;font-family:DM Mono,monospace;font-size:11px"><strong>${m.material||'—'}</strong> — ${m.area||''} <span style="color:${s.cls.includes('red')?'#a93226':'#b8711f'}">[${s.label}]</span>${m.target_date ? `  Target: ${m.target_date}` : ''}</div>`;
+        return `<div style="padding:6px 0;border-bottom:1px solid #f0ece6;font-family:DM Mono,monospace;font-size:11px"><strong>${m.material||'—'}</strong> — ${m.area||''} <span style="color:${s.cls.includes('red')?'#a93226':'#b8711f'}">[${s.label}]</span>${m.target_date ? `  Target: ${fmtDate(m.target_date)}` : ''}</div>`;
       }).join('')
     : '<div style="font-family:DM Mono,monospace;font-size:11px;color:#9a9188">No pending client materials.</div>';
   document.getElementById('pdfMaterialsContainer').innerHTML = matsHtml;
@@ -2187,7 +2188,7 @@ function openPDFModal() {
     pendingDrawings.forEach(drw => {
       const s = getDrawingStatus(drw);
       const sCol = s.cls.includes('red') ? '#a93226' : s.cls.includes('green') ? '#1e8449' : s.cls.includes('grey') ? '#9a9188' : '#b8711f';
-      drwHtml += `<tr style="border-bottom:1px solid #f0ece6"><td style="padding:3px 8px">${drw.drawing_name||'—'}</td><td style="padding:3px 8px">${drw.drawing_type||'—'}</td><td style="padding:3px 8px">${drw.issued_by||'—'}</td><td style="padding:3px 8px">${drw.required_by_date||'—'}</td><td style="padding:3px 8px;color:${sCol}">${s.label}</td></tr>`;
+      drwHtml += `<tr style="border-bottom:1px solid #f0ece6"><td style="padding:3px 8px">${drw.drawing_name||'—'}</td><td style="padding:3px 8px">${drw.drawing_type||'—'}</td><td style="padding:3px 8px">${drw.issued_by||'—'}</td><td style="padding:3px 8px">${fmtDate(drw.required_by_date)}</td><td style="padding:3px 8px;color:${sCol}">${s.label}</td></tr>`;
     });
     drwHtml += '</table>';
   } else {
@@ -2199,7 +2200,7 @@ function openPDFModal() {
   const procPdfMats = (dashData.materials || [])
     .filter(m => m.required_on_site_date && m.required_on_site_date.trim())
     .filter(m => !getMatStatus(m).label.includes('RECEIVED'))
-    .sort((a, b) => new Date(a.required_on_site_date) - new Date(b.required_on_site_date));
+    .sort((a, b) => parseSheetDate(a.required_on_site_date) - parseSheetDate(b.required_on_site_date));
 
   const pdfProcTitle = document.getElementById('pdfProcurementTitle');
   const pdfProcCont  = document.getElementById('pdfProcurementContainer');
@@ -2209,7 +2210,7 @@ function openPDFModal() {
     procHtml += '<tr style="border-bottom:1px solid #e0dbd3;background:#f0ece6"><th style="text-align:left;padding:4px 8px;color:#5c5148">Material</th><th style="text-align:left;padding:4px 8px;color:#5c5148">Area</th><th style="text-align:left;padding:4px 8px;color:#5c5148">Required On Site</th><th style="text-align:left;padding:4px 8px;color:#5c5148">Status</th></tr>';
     procPdfMats.forEach(m => {
       const s = getMatStatus(m);
-      const dStr = m.required_on_site_date ? new Date(m.required_on_site_date).toLocaleDateString('en-GB', {day:'2-digit',month:'2-digit',year:'numeric'}) : '—';
+      const dStr = fmtDate(m.required_on_site_date);
       const sCol = s.cls.includes('red') ? '#a93226' : s.cls.includes('blue') ? '#2980b9' : s.cls.includes('green') ? '#1e8449' : '#b8711f';
       procHtml += `<tr style="border-bottom:1px solid #f0ece6"><td style="padding:3px 8px">${m.material||'—'}</td><td style="padding:3px 8px">${m.area||'—'}</td><td style="padding:3px 8px">${dStr}</td><td style="padding:3px 8px;color:${sCol}">${s.label}</td></tr>`;
     });
@@ -2238,8 +2239,9 @@ function fmtDateShort(d) {
 // Human-readable date from any raw value (Date object, ISO, DD/MM/YYYY, timestamp string)
 // Returns e.g. "10 Jun 2026" — no time, no GMT/IST text.
 function fmtDate(value) {
+  if (value === null || value === undefined || value === '') return '—';
   const d = parseSheetDate(value);
-  if (!d) return '—';
+  if (!d || isNaN(d.getTime())) return '—';
   return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
@@ -2430,9 +2432,7 @@ function showOverlayPopover(e, data) {
 function showMRDPopover(anchor, m, color) {
   hideMRDPopover();
   const status  = getMatStatus(m);
-  const dateStr = m.required_on_site_date
-    ? parseSheetDate(m.required_on_site_date).toLocaleDateString('en-GB', {day:'2-digit',month:'2-digit',year:'numeric'})
-    : '—';
+  const dateStr = fmtDate(m.required_on_site_date);
 
   const pop = document.createElement('div');
   pop.id = 'mrdPopover';
@@ -2479,10 +2479,7 @@ function getDrawingColor(drw) {
 
 function showDrawingPopover(anchor, drw, color) {
   hideMRDPopover();
-  const date = drw.required_by_date ? parseSheetDate(drw.required_by_date) : null;
-  const dateStr = date
-    ? date.toLocaleDateString('en-GB', {day:'2-digit',month:'2-digit',year:'numeric'})
-    : '—';
+  const dateStr = fmtDate(drw.required_by_date);
 
   const pop = document.createElement('div');
   pop.id = 'mrdPopover';
@@ -2520,7 +2517,7 @@ function buildProcurementSection(materials) {
   // Filter to MRD materials (has required_on_site_date)
   const allMrdMats = materials
     .filter(m => m.required_on_site_date && m.required_on_site_date.trim())
-    .sort((a, b) => new Date(a.required_on_site_date) - new Date(b.required_on_site_date));
+    .sort((a, b) => parseSheetDate(a.required_on_site_date) - parseSheetDate(b.required_on_site_date));
 
   // Client view: hide RECEIVED
   const displayMats = isClientView
@@ -2573,9 +2570,7 @@ function buildProcurementSection(materials) {
   const tbody = document.createElement('tbody');
   displayMats.forEach(m => {
     const status  = getMatStatus(m);
-    const dateStr = m.required_on_site_date
-      ? new Date(m.required_on_site_date).toLocaleDateString('en-GB', {day:'2-digit',month:'2-digit',year:'numeric'})
-      : '—';
+    const dateStr = fmtDate(m.required_on_site_date);
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="p-name">${m.material || '—'}</td>
@@ -2608,9 +2603,7 @@ function copyProcurementWhatsApp(allMrdMats) {
   items.forEach((m, i) => {
     const status  = getMatStatus(m);
     const area    = m.area ? ` — ${m.area}` : '';
-    const dateStr = m.required_on_site_date
-      ? new Date(m.required_on_site_date).toLocaleDateString('en-GB', {day:'2-digit',month:'2-digit',year:'numeric'})
-      : '—';
+    const dateStr = fmtDate(m.required_on_site_date);
     text += `${i + 1}. ${m.material || '—'}${area}\n`;
     text += `   Required On Site: ${dateStr}\n`;
     if (m.qty_required && m.qty_required.trim()) text += `   Qty: ${m.qty_required}\n`;
