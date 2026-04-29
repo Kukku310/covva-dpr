@@ -224,29 +224,32 @@ body {
 .gantt-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 6px; }
 .gantt-toggle-btn {
   font-family: 'DM Sans', sans-serif;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
-  padding: 4px 12px;
+  letter-spacing: 0.02em;
+  padding: 5px 13px;
   border-radius: 20px;
   border: 1.5px solid var(--border);
-  background: var(--bg);
+  background: transparent;
   color: var(--text-dim);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease,
+              color 0.15s ease;
   user-select: none;
+  white-space: nowrap;
 }
 .gantt-toggle-btn.active {
   border-color: var(--amber);
   color: var(--amber);
-  background: rgba(196,152,79,0.08);
+  background: rgba(196,152,79,0.07);
 }
 #toggleDRW.active {
   border-color: #7d3c98;
   color: #7d3c98;
-  background: rgba(125,60,152,0.08);
+  background: rgba(125,60,152,0.07);
 }
 .gantt-toggle-btn:hover {
-  opacity: 0.8;
+  opacity: 0.75;
 }
 /* Hybrid Gantt layout */
 .g-container { display: inline-block; min-width: 100%; user-select: none; }
@@ -1029,7 +1032,7 @@ function renderDashboard() {
   main.innerHTML = '';
 
   // ── Section 1: Timeline ──
-  main.appendChild(buildSectionTitle('①', 'Project Timeline'));
+  main.appendChild(buildTimelineSectionHeader());
   main.appendChild(buildGantt(d.activities || [], d.dprs || [], today, startDate, endDate));
 
   // ── Section 2: Site Strength (internal) ──
@@ -1064,6 +1067,41 @@ function renderDashboard() {
 }
 
 // ─── SECTION TITLE ────────────────────────────────────────────
+function buildTimelineSectionHeader() {
+  const header = document.createElement('div');
+  header.className = 'section-header';
+  header.style.cssText = `
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+  `;
+  header.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span class="section-num">①</span>
+      <h2 style="margin:0;">PROJECT TIMELINE</h2>
+    </div>
+    <div id="ganttToggles" style="
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    ">
+      <button id="toggleMRD" class="gantt-toggle-btn ${ganttOverlayState.mrd ? 'active' : ''}"
+        onclick="toggleGanttOverlay('mrd')">
+        ◆ Material Dates
+      </button>
+      <button id="toggleDRW" class="gantt-toggle-btn ${ganttOverlayState.drw ? 'active' : ''}"
+        onclick="toggleGanttOverlay('drw')">
+        ▲ Drawing Deadlines
+      </button>
+    </div>
+  `;
+  return header;
+}
+
 function buildSectionTitle(num, label, internalOnly) {
   const div = document.createElement('div');
   div.className = 'section-title';
@@ -1409,27 +1447,6 @@ function buildGantt(activities, dprs, today, startDate, endDate) {
   todayTrack.appendChild(todaySpan);
   todayLabelRow.appendChild(todayTrack);
   container.appendChild(todayLabelRow);
-
-  const toggles = document.createElement('div');
-  toggles.id = 'ganttToggles';
-  toggles.style.cssText = `
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    padding: 8px 0 6px 0;
-    flex-wrap: wrap;
-  `;
-  toggles.innerHTML = `
-    <button id="toggleMRD" class="gantt-toggle-btn ${ganttOverlayState.mrd ? 'active' : ''}"
-      onclick="toggleGanttOverlay('mrd')">
-      ◆ Material Dates
-    </button>
-    <button id="toggleDRW" class="gantt-toggle-btn ${ganttOverlayState.drw ? 'active' : ''}"
-      onclick="toggleGanttOverlay('drw')">
-      ▲ Drawing Deadlines
-    </button>
-  `;
-  wrap.appendChild(toggles);
 
   scrollDiv.appendChild(container);
   wrap.appendChild(scrollDiv);
@@ -1815,14 +1832,18 @@ function buildDPRArchive(dprs) {
     return wrap;
   }
 
-  const sorted = [...dprs].sort((a,b) => new Date(b.date) - new Date(a.date));
+  const sorted = [...dprs].sort((a,b) => {
+    const da = parseSheetDate(a.date);
+    const db = parseSheetDate(b.date);
+    return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
+  });
   sorted.forEach((dpr, i) => {
     const text = dpr.report || dpr.formatted_report || '';
     const entry = document.createElement('div');
     entry.className = 'dpr-entry';
     entry.innerHTML = `
       <div class="dpr-entry-header" onclick="toggleDPREntry(${i})">
-        <span class="dpr-entry-date">${dpr.date ? new Date(dpr.date).toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'2-digit'}) : '—'}</span>
+        <span class="dpr-entry-date">${fmtDate(dpr.date)}</span>
         <span class="dpr-entry-preview">${text.split('\n').filter(Boolean)[0] || '—'}</span>
         <span class="dpr-entry-arrow" id="dprArrow-${i}">▶</span>
       </div>
@@ -2217,27 +2238,8 @@ function fmtDateShort(d) {
 // Human-readable date from any raw value (Date object, ISO, DD/MM/YYYY, timestamp string)
 // Returns e.g. "10 Jun 2026" — no time, no GMT/IST text.
 function fmtDate(value) {
-  if (!value) return '—';
-  let d;
-  if (value instanceof Date) {
-    d = value;
-  } else {
-    const str = String(value).trim();
-    // YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ
-    const iso = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (iso) {
-      d = new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
-    } else {
-      // DD/MM/YYYY
-      const dmy = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-      if (dmy) {
-        d = new Date(Number(dmy[3]), Number(dmy[2]) - 1, Number(dmy[1]));
-      } else {
-        d = new Date(str);
-      }
-    }
-  }
-  if (!d || isNaN(d)) return '—';
+  const d = parseSheetDate(value);
+  if (!d) return '—';
   return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
@@ -2277,17 +2279,34 @@ function parseSheetDate(value) {
   }
 
   // DD/MM/YYYY
+  const dmyFull = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (dmyFull) {
+    return new Date(Number(dmyFull[3]), Number(dmyFull[2]) - 1, Number(dmyFull[1]));
+  }
+
   const dmyMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
   if (dmyMatch) {
     return new Date(Number(dmyMatch[3]), Number(dmyMatch[2]) - 1, Number(dmyMatch[1]));
   }
 
-  // Numeric serial (Google Sheets date serial — days since Dec 30 1899)
-  if (/^\d+$/.test(str)) {
+  // Long form: "29 April 2026" or "April 29, 2026"
+  const longForm = str.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/);
+  if (longForm) {
+    return new Date(`${longForm[2]} ${longForm[1]} ${longForm[3]}`);
+  }
+
+  const longForm2 = str.match(/^([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})$/);
+  if (longForm2) {
+    return new Date(`${longForm2[1]} ${longForm2[2]} ${longForm2[3]}`);
+  }
+
+  // Google Sheets serial number (days since Dec 30 1899)
+  if (/^\d{4,6}$/.test(str)) {
     const serial = Number(str);
-    const msPerDay = 86400000;
-    const epoch = new Date(1899, 11, 30).getTime();
-    return new Date(epoch + serial * msPerDay);
+    if (serial > 1000) {
+      const epoch = new Date(1899, 11, 30).getTime();
+      return new Date(epoch + serial * 86400000);
+    }
   }
 
   // Fallback — strip time to avoid tz issues
