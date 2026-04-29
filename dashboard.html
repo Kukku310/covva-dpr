@@ -418,12 +418,12 @@ body {
   background: var(--panel);
 }
 .material-row {
-  display: flex;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: 200px 1fr auto;
+  align-items: center;
   gap: 12px;
-  padding: 12px 16px;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--border);
-  flex-wrap: wrap;
 }
 .material-row:last-child { border-bottom: none; }
 .material-name {
@@ -431,8 +431,6 @@ body {
   font-size: 13px;
   font-weight: 500;
   color: var(--text);
-  flex: 1;
-  min-width: 160px;
 }
 .material-area {
   font-family: 'DM Mono', monospace;
@@ -442,11 +440,9 @@ body {
 }
 .material-meta {
   font-family: 'DM Mono', monospace;
-  font-size: 10px;
-  color: var(--dim);
-  line-height: 1.6;
-  flex: 2;
-  min-width: 160px;
+  font-size: 13px;
+  color: var(--text-dim, var(--dim));
+  line-height: 1.5;
 }
 .status-badge {
   font-family: 'DM Mono', monospace;
@@ -1214,7 +1210,8 @@ function buildGantt(activities, dprs, today, startDate, endDate) {
     container.appendChild(row);
   });
 
-  // ── MRD MARKERS (canvas diamonds + HTML labels, between activity rows and today label) ──
+  // ── PIN MARKERS — MRD diamonds + Drawing triangles with shared collision-detected labels ──
+
   const mrdMats = (dashData && dashData.materials || []).filter(m => {
     if (!m.required_on_site_date || !m.required_on_site_date.trim()) return false;
     const d = parseSheetDate(m.required_on_site_date);
@@ -1227,10 +1224,60 @@ function buildGantt(activities, dprs, today, startDate, endDate) {
     return mx >= 0 && mx <= chartW;
   });
 
+  const drawingPins = (dashData && dashData.drawings || []).filter(drw => {
+    if (!drw.required_by_date || !String(drw.required_by_date).trim()) return false;
+    if ((drw.status || '').toLowerCase().trim() === 'received') return false;
+    const d = parseSheetDate(drw.required_by_date);
+    if (!d) return false;
+    const mx = Math.round((d - minD) / 86400000) * PX_PER_DAY;
+    return mx >= 0 && mx <= chartW;
+  });
+
+  // Shared collision detection — all pin labels in one pass so MRD and Drawing labels
+  // never overlap each other either.
+  const usedLabelSlots = [];
+  function findPinLabelRow(cx, lw) {
+    for (let r = 0; r <= 2; r++) {
+      const conflict = usedLabelSlots.some(s =>
+        s.row === r && Math.abs(cx - s.x) < (lw / 2 + s.width / 2 + 6)
+      );
+      if (!conflict) return r;
+    }
+    return 2; // fallback: always fits on row 2
+  }
+
+  const pinData = []; // { type, obj, mx, name, col, labelRow }
+
+  mrdMats.forEach(m => {
+    const mDate = parseSheetDate(m.required_on_site_date);
+    const mx    = Math.round((mDate - minD) / 86400000) * PX_PER_DAY;
+    const col   = getMRDColor(m, isDark);
+    const raw   = m.material || '';
+    const name  = raw.length > 12 ? raw.substring(0, 12) + '…' : raw;
+    const lw    = name.length * 6.5;
+    const row   = findPinLabelRow(mx, lw);
+    usedLabelSlots.push({ x: mx, width: lw, row });
+    pinData.push({ type: 'mrd', obj: m, mx, name, col, labelRow: row });
+  });
+
+  drawingPins.forEach(drw => {
+    const dDate = parseSheetDate(drw.required_by_date);
+    const mx    = Math.round((dDate - minD) / 86400000) * PX_PER_DAY;
+    const col   = getDrawingColor(drw);
+    const raw   = drw.drawing_name || '';
+    const name  = raw.length > 12 ? raw.substring(0, 12) + '…' : raw;
+    const lw    = name.length * 6.5;
+    const row   = findPinLabelRow(mx, lw);
+    usedLabelSlots.push({ x: mx, width: lw, row });
+    pinData.push({ type: 'drw', obj: drw, mx, name, col, labelRow: row });
+  });
+
+  const maxRowUsed    = usedLabelSlots.length > 0 ? Math.max(...usedLabelSlots.map(s => s.row)) : 0;
+  const labelTrackH   = Math.max(36, maxRowUsed * 20 + 18);
+
+  // ── MRD canvas row (diamonds + canvas stems) ──
   if (mrdMats.length > 0) {
     const MRD_H = 32;
-
-    // Canvas row
     const mrdRow = document.createElement('div');
     mrdRow.style.cssText = 'display:flex;align-items:flex-start;position:relative';
 
@@ -1250,8 +1297,8 @@ function buildGantt(activities, dprs, today, startDate, endDate) {
       const mDate = parseSheetDate(m.required_on_site_date);
       const mx    = Math.round((mDate - minD) / 86400000) * PX_PER_DAY;
       const col   = getMRDColor(m, isDark);
-      const cy    = 9;   // diamond centre Y
-      const sz    = 5;   // half-width of diamond
+      const cy    = 9;  // diamond centre Y
+      const sz    = 5;  // half-width of diamond
 
       // Diamond (rotated square)
       mrdCtx.fillStyle = col;
@@ -1263,15 +1310,14 @@ function buildGantt(activities, dprs, today, startDate, endDate) {
       mrdCtx.closePath();
       mrdCtx.fill();
 
-      // Stem down from diamond
+      // Stem down from diamond to canvas bottom
       mrdCtx.strokeStyle = col;
-      mrdCtx.lineWidth   = 2;
+      mrdCtx.lineWidth   = 1.5;
       mrdCtx.beginPath();
       mrdCtx.moveTo(mx, cy + sz);
-      mrdCtx.lineTo(mx, cy + sz + 12);
+      mrdCtx.lineTo(mx, MRD_H);
       mrdCtx.stroke();
 
-      // Transparent tap target
       const tap = document.createElement('div');
       tap.style.cssText = `position:absolute;left:${mx - 22}px;top:0;width:44px;height:${MRD_H}px;cursor:pointer;z-index:10`;
       tap.addEventListener('click', e => { e.stopPropagation(); showMRDPopover(tap, m, col); });
@@ -1281,49 +1327,11 @@ function buildGantt(activities, dprs, today, startDate, endDate) {
     mrdCanvasWrap.insertBefore(mrdCanvas, mrdCanvasWrap.firstChild);
     mrdRow.appendChild(mrdCanvasWrap);
     container.appendChild(mrdRow);
-
-    // HTML label row (below canvas, above today label)
-    const mrdLabelRow = document.createElement('div');
-    mrdLabelRow.style.cssText = 'display:flex;align-items:flex-start;position:relative;height:20px;overflow:visible';
-
-    const mrdLblSpacer = document.createElement('div');
-    mrdLblSpacer.style.cssText = `width:${LABEL_W}px;flex-shrink:0`;
-    mrdLabelRow.appendChild(mrdLblSpacer);
-
-    const mrdLblTrack = document.createElement('div');
-    mrdLblTrack.style.cssText = `position:relative;width:${chartW}px;height:20px;flex-shrink:0;overflow:visible`;
-
-    mrdMats.forEach(m => {
-      const mDate = parseSheetDate(m.required_on_site_date);
-      const mx    = Math.round((mDate - minD) / 86400000) * PX_PER_DAY;
-      const col   = getMRDColor(m, isDark);
-      const raw   = m.material || '';
-      const name  = raw.length > 12 ? raw.substring(0, 12) + '…' : raw;
-      const topOff = Math.abs(mx - todayX) < 20 ? 14 : 0;
-
-      const lbl = document.createElement('span');
-      lbl.style.cssText = `position:absolute;left:${mx - 2}px;top:${topOff}px;font-family:'DM Mono',monospace;font-size:9px;color:${col};white-space:nowrap;pointer-events:none`;
-      lbl.textContent = name;
-      mrdLblTrack.appendChild(lbl);
-    });
-
-    mrdLabelRow.appendChild(mrdLblTrack);
-    container.appendChild(mrdLabelRow);
   }
 
-  // ── DRAWING DEADLINE MARKERS (canvas triangles + HTML labels) ──
-  const drawingPins = (dashData && dashData.drawings || []).filter(drw => {
-    if (!drw.required_by_date || !String(drw.required_by_date).trim()) return false;
-    if ((drw.status || '').toLowerCase().trim() === 'received') return false;
-    const d = parseSheetDate(drw.required_by_date);
-    if (!d) return false;
-    const mx = Math.round((d - minD) / 86400000) * PX_PER_DAY;
-    return mx >= 0 && mx <= chartW;
-  });
-
+  // ── Drawing canvas row (triangles + canvas stems) ──
   if (drawingPins.length > 0) {
     const DRW_H = 32;
-
     const drwRow = document.createElement('div');
     drwRow.style.cssText = 'display:flex;align-items:flex-start;position:relative';
 
@@ -1348,17 +1356,18 @@ function buildGantt(activities, dprs, today, startDate, endDate) {
 
       drwCtx.fillStyle = col;
       drwCtx.beginPath();
-      drwCtx.moveTo(mx, cy - sz);
+      drwCtx.moveTo(mx,      cy - sz);
       drwCtx.lineTo(mx + sz, cy + sz);
       drwCtx.lineTo(mx - sz, cy + sz);
       drwCtx.closePath();
       drwCtx.fill();
 
+      // Stem down from triangle to canvas bottom
       drwCtx.strokeStyle = col;
-      drwCtx.lineWidth   = 2;
+      drwCtx.lineWidth   = 1.5;
       drwCtx.beginPath();
       drwCtx.moveTo(mx, cy + sz);
-      drwCtx.lineTo(mx, cy + sz + 12);
+      drwCtx.lineTo(mx, DRW_H);
       drwCtx.stroke();
 
       const tap = document.createElement('div');
@@ -1370,33 +1379,37 @@ function buildGantt(activities, dprs, today, startDate, endDate) {
     drwCanvasWrap.insertBefore(drwCanvas, drwCanvasWrap.firstChild);
     drwRow.appendChild(drwCanvasWrap);
     container.appendChild(drwRow);
+  }
 
-    const drwLabelRow = document.createElement('div');
-    drwLabelRow.style.cssText = 'display:flex;align-items:flex-start;position:relative;height:20px;overflow:visible';
+  // ── Combined label row for all pins (collision-detected, shared) ──
+  if (pinData.length > 0) {
+    const pinLabelRow = document.createElement('div');
+    pinLabelRow.style.cssText = 'display:flex;align-items:flex-start;position:relative';
 
-    const drwLblSpacer = document.createElement('div');
-    drwLblSpacer.style.cssText = `width:${LABEL_W}px;flex-shrink:0`;
-    drwLabelRow.appendChild(drwLblSpacer);
+    const pinLblSpacer = document.createElement('div');
+    pinLblSpacer.style.cssText = `width:${LABEL_W}px;flex-shrink:0`;
+    pinLabelRow.appendChild(pinLblSpacer);
 
-    const drwLblTrack = document.createElement('div');
-    drwLblTrack.style.cssText = `position:relative;width:${chartW}px;height:20px;flex-shrink:0;overflow:visible`;
+    const pinLblTrack = document.createElement('div');
+    pinLblTrack.style.cssText = `position:relative;width:${chartW}px;height:${labelTrackH}px;flex-shrink:0;overflow:visible`;
 
-    drawingPins.forEach(drw => {
-      const dDate = parseSheetDate(drw.required_by_date);
-      const mx    = Math.round((dDate - minD) / 86400000) * PX_PER_DAY;
-      const col   = getDrawingColor(drw);
-      const raw   = drw.drawing_name || '';
-      const name  = raw.length > 12 ? raw.substring(0, 12) + '…' : raw;
-      const topOff = Math.abs(mx - todayX) < 20 ? 14 : 0;
+    pinData.forEach(pin => {
+      // Extend stem from top of label track down to the label's row
+      if (pin.labelRow > 0) {
+        const stemExt = document.createElement('div');
+        const stemH   = pin.labelRow * 18 + 4;
+        stemExt.style.cssText = `position:absolute;left:${pin.mx}px;top:0;width:1.5px;height:${stemH}px;background:${pin.col};transform:translateX(-50%);opacity:0.7`;
+        pinLblTrack.appendChild(stemExt);
+      }
 
       const lbl = document.createElement('span');
-      lbl.style.cssText = `position:absolute;left:${mx - 2}px;top:${topOff}px;font-family:'DM Mono',monospace;font-size:9px;color:${col};white-space:nowrap;pointer-events:none`;
-      lbl.textContent = name;
-      drwLblTrack.appendChild(lbl);
+      lbl.style.cssText = `position:absolute;left:${pin.mx - 2}px;top:${pin.labelRow * 18}px;font-family:'DM Mono',monospace;font-size:9px;color:${pin.col};white-space:nowrap;pointer-events:none`;
+      lbl.textContent = pin.name;
+      pinLblTrack.appendChild(lbl);
     });
 
-    drwLabelRow.appendChild(drwLblTrack);
-    container.appendChild(drwLabelRow);
+    pinLabelRow.appendChild(pinLblTrack);
+    container.appendChild(pinLabelRow);
   }
 
   // ── TODAY DATE LABEL (HTML, below last row) ──
@@ -1704,21 +1717,23 @@ function buildMaterialsSection(materials) {
     const row = document.createElement('div');
     row.className = 'material-row';
 
+    // Column 1 — name + area
     const nameDiv = document.createElement('div');
-    const statusStr = getMatStatus(m);
     nameDiv.innerHTML = `<div class="material-name">${m.material || m.name || '—'}</div><div class="material-area">${m.area || ''}</div>`;
 
+    // Column 2 — target date (own column, not crowded next to name)
     const metaDiv = document.createElement('div');
     metaDiv.className = 'material-meta';
-    let metaHtml = '';
-    if (m.inform_date) metaHtml += `Informed: ${m.inform_date}<br>`;
     if (m.target_date) {
-      const overdue = new Date(m.target_date) < new Date();
-      metaHtml += `Target: <span style="${overdue ? 'color:var(--red)' : ''}">${m.target_date}</span><br>`;
+      const td = parseSheetDate(m.target_date);
+      const overdue = td && td < new Date();
+      metaDiv.innerHTML = `Target: <span style="${overdue ? 'color:var(--red);font-weight:500' : ''}">${fmtDate(m.target_date)}</span>`;
+    } else {
+      metaDiv.textContent = '—';
     }
-    if (m.notes) metaHtml += m.notes;
-    metaDiv.innerHTML = metaHtml || '—';
 
+    // Column 3 — status badge
+    const statusStr = getMatStatus(m);
     const badge = document.createElement('span');
     badge.className = `status-badge ${statusStr.cls}`;
     badge.textContent = statusStr.label;
@@ -1765,20 +1780,23 @@ function buildDrawingsSection(drawings) {
     const row = document.createElement('div');
     row.className = 'material-row';
 
+    // Column 1 — drawing name + type
     const nameDiv = document.createElement('div');
     nameDiv.innerHTML = `<div class="material-name">${drw.drawing_name || '—'}</div><div class="material-area">${drw.drawing_type || ''}</div>`;
 
+    // Column 2 — required-by date in its own column
     const reqDate = parseSheetDate(drw.required_by_date);
     const overdue = reqDate && reqDate < today && (drw.status || '').toLowerCase().trim() !== 'received';
 
     const metaDiv = document.createElement('div');
     metaDiv.className = 'material-meta';
-    let metaHtml = '';
-    if (drw.issued_by) metaHtml += `Issued By: ${drw.issued_by}<br>`;
-    if (drw.required_by_date) metaHtml += `Required By: <span style="${overdue ? 'color:var(--red)' : ''}">${drw.required_by_date}</span><br>`;
-    if (drw.notes) metaHtml += drw.notes;
-    metaDiv.innerHTML = metaHtml || '—';
+    if (drw.required_by_date) {
+      metaDiv.innerHTML = `Required By: <span style="${overdue ? 'color:var(--red);font-weight:500' : ''}">${fmtDate(drw.required_by_date)}</span>`;
+    } else {
+      metaDiv.textContent = '—';
+    }
 
+    // Column 3 — status badge
     const badge = document.createElement('span');
     const status = getDrawingStatus(drw);
     badge.className = `status-badge ${status.cls}`;
@@ -2209,6 +2227,33 @@ function fmtDateShort(d) {
   const parsed = parseSheetDate(d);
   if (!parsed) return '—';
   return parsed.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+// Human-readable date from any raw value (Date object, ISO, DD/MM/YYYY, timestamp string)
+// Returns e.g. "10 Jun 2026" — no time, no GMT/IST text.
+function fmtDate(value) {
+  if (!value) return '—';
+  let d;
+  if (value instanceof Date) {
+    d = value;
+  } else {
+    const str = String(value).trim();
+    // YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ
+    const iso = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (iso) {
+      d = new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+    } else {
+      // DD/MM/YYYY
+      const dmy = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (dmy) {
+        d = new Date(Number(dmy[3]), Number(dmy[2]) - 1, Number(dmy[1]));
+      } else {
+        d = new Date(str);
+      }
+    }
+  }
+  if (!d || isNaN(d)) return '—';
+  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 function parseSheetDate(value) {
