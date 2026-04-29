@@ -970,7 +970,7 @@ function renderDashboard() {
   document.getElementById('projectDisplay').textContent = pName.toUpperCase();
 
   // Compute date range + day count from activities
-  const allDates = (d.activities || []).flatMap(a => [a.planned_start, a.planned_end, a.current_end]).filter(Boolean).map(s => new Date(s)).filter(x => !isNaN(x));
+  const allDates = (d.activities || []).flatMap(a => [a.planned_start, a.planned_end, a.current_end]).map(parseSheetDate).filter(Boolean);
   const startDate = allDates.length ? new Date(Math.min(...allDates)) : null;
   const endDate   = allDates.length ? new Date(Math.max(...allDates)) : null;
   const today     = new Date();
@@ -1042,7 +1042,7 @@ function buildGantt(activities, dprs, today, startDate, endDate) {
   }
 
   // Compute chart bounds
-  const allDates = activities.flatMap(a => [a.planned_start, a.planned_end, a.current_end, a.planned_end_original].filter(Boolean)).map(s => new Date(s)).filter(x => !isNaN(x));
+  const allDates = activities.flatMap(a => [a.planned_start, a.planned_end, a.current_end, a.planned_end_original]).map(parseSheetDate).filter(Boolean);
   if (!allDates.length) { wrap.innerHTML = '<div class="empty-state">No date data in activities.</div>'; return wrap; }
 
   const minD = new Date(Math.min(...allDates, today));
@@ -1068,7 +1068,8 @@ function buildGantt(activities, dprs, today, startDate, endDate) {
   };
 
   function dayX(d) {
-    return Math.round((new Date(d) - minD) / 86400000) * PX_PER_DAY;
+    const parsed = parseSheetDate(d);
+    return parsed ? Math.round((parsed - minD) / 86400000) * PX_PER_DAY : 0;
   }
 
   // ── SCROLL WRAPPER ──
@@ -1177,7 +1178,7 @@ function buildGantt(activities, dprs, today, startDate, endDate) {
       }
 
       // Work increase extension (current_end > planned_end)
-      if (act.planned_end && act.current_end && new Date(act.current_end) > new Date(act.planned_end)) {
+      if (compareSheetDates(act.current_end, act.planned_end) > 0) {
         ctx.fillStyle = '#7d3c98';
         ctx.globalAlpha = 0.8;
         ctx.beginPath();
@@ -1735,7 +1736,7 @@ function buildPDFGanttFromData(activities, today) {
   const colorMap = { completed:'#1e8449', on_track:'#1a6fa0', in_progress:'#1a6fa0', delayed:'#a93226', not_started:'#c8c0b8' };
 
   if (!activities.length) return;
-  const allDates = activities.flatMap(a => [a.planned_start, a.current_end || a.planned_end].filter(Boolean)).map(s => new Date(s)).filter(x => !isNaN(x));
+  const allDates = activities.flatMap(a => [a.planned_start, a.current_end || a.planned_end]).map(parseSheetDate).filter(Boolean);
   if (!allDates.length) return;
   const minD = new Date(Math.min(...allDates));
   const maxD = new Date(Math.max(...allDates, today));
@@ -1745,7 +1746,10 @@ function buildPDFGanttFromData(activities, today) {
   const totalDays = Math.ceil((maxD - minD) / 86400000);
   const chartW    = totalDays * PX_DAY;
 
-  function dayX(d) { return Math.round((new Date(d) - minD) / 86400000) * PX_DAY; }
+  function dayX(d) {
+    const parsed = parseSheetDate(d);
+    return parsed ? Math.round((parsed - minD) / 86400000) * PX_DAY : 0;
+  }
 
   const container = document.getElementById('pdfGanttVisual');
   container.innerHTML = '';
@@ -2002,8 +2006,27 @@ function closePDFModal() {
 
 // ─── UTILS ────────────────────────────────────────────────────
 function fmtDateShort(d) {
-  if (!d || isNaN(new Date(d))) return '—';
-  return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const parsed = parseSheetDate(d);
+  if (!parsed) return '—';
+  return parsed.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function parseSheetDate(value) {
+  if (!value) return null;
+  const parsed = value instanceof Date ? value : new Date(value);
+  if (isNaN(parsed)) return null;
+  const key = parsed.toISOString().slice(0, 10);
+  const parts = key.split('-').map(Number);
+  return new Date(parts[0], parts[1] - 1, parts[2]);
+}
+
+function compareSheetDates(a, b) {
+  const da = parseSheetDate(a);
+  const db = parseSheetDate(b);
+  if (!da && !db) return 0;
+  if (!da) return -1;
+  if (!db) return 1;
+  return da - db;
 }
 
 // ─── PICKER (no project param) ────────────────────────────────
