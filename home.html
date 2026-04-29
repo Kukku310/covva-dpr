@@ -475,13 +475,6 @@ function setTimelineActive(projectName, val) {
   try { localStorage.setItem(tlKey(projectName), val ? 'true' : 'false'); } catch(e) {}
 }
 
-function toggleTimeline(projectName, checkbox) {
-  const active = checkbox.checked;
-  setTimelineActive(projectName, active);
-  const stateEl = checkbox.closest('.tl-toggle-wrap').querySelector('.tl-state-text');
-  stateEl.textContent = active ? 'On' : 'Off';
-  stateEl.classList.toggle('is-on', active);
-}
 
 // ── RENDER CARD ────────────────────────────────────────────────
 function buildCard(p) {
@@ -520,8 +513,7 @@ function buildCard(p) {
          <div class="tl-toggle-wrap">
            <span class="tl-state-text${tlActive ? ' is-on' : ''}">${tlActive ? 'On' : 'Off'}</span>
            <label class="tl-switch" title="Toggle timeline update for today">
-             <input type="checkbox" id="${safeId}" ${tlActive ? 'checked' : ''}
-               onchange="toggleTimeline(${JSON.stringify(p.name)}, this)">
+             <input type="checkbox" id="${safeId}" ${tlActive ? 'checked' : ''}>
              <div class="tl-track"><div class="tl-thumb"></div></div>
            </label>
          </div>
@@ -552,6 +544,18 @@ function buildCard(p) {
       <a class="open-btn secondary-btn" href="${setupUrl}">Edit Timeline</a>
     </div>
   `;
+
+  if (!autoOn) {
+    const cb       = card.querySelector('#' + safeId);
+    const stateEl  = card.querySelector('.tl-state-text');
+    cb.addEventListener('change', function() {
+      const active = this.checked;
+      setTimelineActive(p.name, active);
+      stateEl.textContent = active ? 'On' : 'Off';
+      stateEl.classList.toggle('is-on', active);
+    });
+  }
+
   return card;
 }
 
