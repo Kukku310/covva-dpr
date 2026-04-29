@@ -1216,6 +1216,7 @@ async function confirmRollback() {
         showMsg('editActivityMsg', 'warning', 'No entries found for that date.');
       }
       await loadProjectForEdit(project);
+      try { localStorage.setItem('covva-rollback-ts', Date.now().toString()); } catch(e) {}
     } else {
       showMsg('editActivityMsg', 'error', 'Rollback failed. Check Apps Script logs.');
     }

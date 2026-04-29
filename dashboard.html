@@ -928,6 +928,7 @@ async function loadDashboard() {
     if (!data.success) throw new Error(data.error || 'Load failed');
 
     dashData = data;
+    dashData._loadedAt = Date.now();
     await loadProjectList();
     // Wait for Google Fonts to load before rendering SVG Gantt text
     await document.fonts.ready;
@@ -2228,6 +2229,18 @@ function showCopyToast(msg) {
   clearTimeout(toast._timer);
   toast._timer = setTimeout(() => toast.classList.remove('visible'), 1800);
 }
+
+// ─── ROLLBACK SYNC ────────────────────────────────────────────
+window.addEventListener('storage', (e) => {
+  if (e.key === 'covva-rollback-ts' && dashData) loadDashboard();
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden || !dashData) return;
+  try {
+    const rollbackTs = Number(localStorage.getItem('covva-rollback-ts') || 0);
+    if (rollbackTs > (dashData._loadedAt || 0)) loadDashboard();
+  } catch(e) {}
+});
 
 // ─── INIT ─────────────────────────────────────────────────────
 if (currentProject) {
