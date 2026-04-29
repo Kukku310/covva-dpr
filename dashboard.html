@@ -17,6 +17,8 @@
   --amber-glow: rgba(184,113,31,0.12);
   --amber-dim: #9a5a18;
   --text:    #1a1714;
+  --text-dim: var(--dim);
+  --card:    var(--surface);
   --dim:     #9a9188;
   --mid:     #5c5148;
   --green:   #1e8449;
@@ -35,6 +37,8 @@ body.dark {
   --amber-glow: rgba(212,135,42,0.15);
   --amber-dim: #8a5515;
   --text:    #e8e2d9;
+  --text-dim: var(--dim);
+  --card:    var(--surface);
   --dim:     #7a7268;
   --mid:     #a89f94;
 }
@@ -218,6 +222,32 @@ body {
   margin-bottom: 12px;
 }
 .gantt-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 6px; }
+.gantt-toggle-btn {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: var(--bg);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+.gantt-toggle-btn.active {
+  border-color: var(--amber);
+  color: var(--amber);
+  background: rgba(196,152,79,0.08);
+}
+#toggleDRW.active {
+  border-color: #7d3c98;
+  color: #7d3c98;
+  background: rgba(125,60,152,0.08);
+}
+.gantt-toggle-btn:hover {
+  opacity: 0.8;
+}
 /* Hybrid Gantt layout */
 .g-container { display: inline-block; min-width: 100%; user-select: none; }
 .g-axis-row { display: flex; align-items: flex-end; height: 28px; }
@@ -874,6 +904,19 @@ const params = new URLSearchParams(window.location.search);
 let currentProject = params.get('project') || '';
 let isClientView   = false;
 let dashData       = null;
+const ganttOverlayState = { mrd: true, drw: true };
+
+function toggleGanttOverlay(type) {
+  ganttOverlayState[type] = !ganttOverlayState[type];
+  const btn = document.getElementById(
+    type === 'mrd' ? 'toggleMRD' : 'toggleDRW'
+  );
+  if (btn) btn.classList.toggle('active', ganttOverlayState[type]);
+  document.querySelectorAll(`.gantt-overlay-${type}`)
+    .forEach(el => {
+      el.style.display = ganttOverlayState[type] ? 'block' : 'none';
+    });
+}
 
 // ─── THEME ────────────────────────────────────────────────────
 function applyTheme(isDark) {
@@ -1122,6 +1165,9 @@ function buildGantt(activities, dprs, today, startDate, endDate) {
   const todayX = dayX(today);
 
   // ── ACTIVITY ROWS ──
+  const ganttBarsContainer = document.createElement('div');
+  ganttBarsContainer.style.cssText = 'position:relative';
+
   activities.forEach((act, i) => {
     const row = document.createElement('div');
     row.className = 'g-row';
@@ -1207,210 +1253,128 @@ function buildGantt(activities, dprs, today, startDate, endDate) {
     ctx.beginPath(); ctx.moveTo(todayX, 0); ctx.lineTo(todayX, ROW_H); ctx.stroke();
 
     row.appendChild(track);
-    container.appendChild(row);
+    ganttBarsContainer.appendChild(row);
   });
 
-  // ── PIN MARKERS — MRD diamonds + Drawing triangles with shared collision-detected labels ──
+  const totalChartHeight = activities.length * ROW_H;
+  const totalChartWidth = chartW;
 
-  const mrdMats = (dashData && dashData.materials || []).filter(m => {
-    if (!m.required_on_site_date || !m.required_on_site_date.trim()) return false;
-    const d = parseSheetDate(m.required_on_site_date);
-    if (!d) return false;
-    if (isClientView) {
-      const s = (m.status || '').toLowerCase();
-      if (s.includes('received')) return false;
-    }
-    const mx = Math.round((d - minD) / 86400000) * PX_PER_DAY;
-    return mx >= 0 && mx <= chartW;
-  });
+  (dashData && dashData.materials || []).forEach(mat => {
+    const date = parseSheetDate(mat.required_on_site_date);
+    if (!date || (mat.status || '').toLowerCase().trim() === 'received') return;
+    const mx = Math.round((date - minD) / 86400000) * PX_PER_DAY;
+    if (mx < 0 || mx > totalChartWidth) return;
 
-  const drawingPins = (dashData && dashData.drawings || []).filter(drw => {
-    if (!drw.required_by_date || !String(drw.required_by_date).trim()) return false;
-    if ((drw.status || '').toLowerCase().trim() === 'received') return false;
-    const d = parseSheetDate(drw.required_by_date);
-    if (!d) return false;
-    const mx = Math.round((d - minD) / 86400000) * PX_PER_DAY;
-    return mx >= 0 && mx <= chartW;
-  });
-
-  // Shared collision detection — all pin labels in one pass so MRD and Drawing labels
-  // never overlap each other either.
-  const usedLabelSlots = [];
-  function findPinLabelRow(cx, lw) {
-    for (let r = 0; r <= 2; r++) {
-      const conflict = usedLabelSlots.some(s =>
-        s.row === r && Math.abs(cx - s.x) < (lw / 2 + s.width / 2 + 6)
+    const line = document.createElement('div');
+    line.className = 'gantt-overlay-line gantt-overlay-mrd';
+    line.style.cssText = `
+      position: absolute;
+      left: ${LABEL_W + mx}px;
+      top: 0;
+      width: 1.5px;
+      height: ${totalChartHeight}px;
+      background: repeating-linear-gradient(
+        to bottom,
+        var(--amber) 0px,
+        var(--amber) 5px,
+        transparent 5px,
+        transparent 10px
       );
-      if (!conflict) return r;
-    }
-    return 2; // fallback: always fits on row 2
-  }
+      opacity: 0.6;
+      pointer-events: none;
+      z-index: 2;
+      display: ${ganttOverlayState.mrd ? 'block' : 'none'};
+    `;
 
-  const pinData = []; // { type, obj, mx, name, col, labelRow }
-
-  mrdMats.forEach(m => {
-    const mDate = parseSheetDate(m.required_on_site_date);
-    const mx    = Math.round((mDate - minD) / 86400000) * PX_PER_DAY;
-    const col   = getMRDColor(m, isDark);
-    const raw   = m.material || '';
-    const name  = raw.length > 12 ? raw.substring(0, 12) + '…' : raw;
-    const lw    = name.length * 6.5;
-    const row   = findPinLabelRow(mx, lw);
-    usedLabelSlots.push({ x: mx, width: lw, row });
-    pinData.push({ type: 'mrd', obj: m, mx, name, col, labelRow: row });
+    const hit = document.createElement('div');
+    hit.className = 'gantt-overlay-mrd';
+    hit.style.cssText = `
+      position: absolute;
+      left: ${LABEL_W + mx - 8}px;
+      top: 0;
+      width: 16px;
+      height: ${totalChartHeight}px;
+      cursor: pointer;
+      z-index: 3;
+      display: ${ganttOverlayState.mrd ? 'block' : 'none'};
+    `;
+    hit.onclick = (e) => {
+      e.stopPropagation();
+      showOverlayPopover(e, {
+        icon: '◆',
+        color: 'var(--amber)',
+        title: mat.material_name || mat.material || mat.name || 'Material',
+        rows: [
+          ['Area', mat.area || '—'],
+          ['Required On Site', fmtDate(mat.required_on_site_date)],
+          ['Status', mat.status || '—'],
+          ['Notes', mat.notes || '—']
+        ]
+      });
+    };
+    ganttBarsContainer.appendChild(line);
+    ganttBarsContainer.appendChild(hit);
   });
 
-  drawingPins.forEach(drw => {
-    const dDate = parseSheetDate(drw.required_by_date);
-    const mx    = Math.round((dDate - minD) / 86400000) * PX_PER_DAY;
-    const col   = getDrawingColor(drw);
-    const raw   = drw.drawing_name || '';
-    const name  = raw.length > 12 ? raw.substring(0, 12) + '…' : raw;
-    const lw    = name.length * 6.5;
-    const row   = findPinLabelRow(mx, lw);
-    usedLabelSlots.push({ x: mx, width: lw, row });
-    pinData.push({ type: 'drw', obj: drw, mx, name, col, labelRow: row });
+  (dashData && dashData.drawings || []).forEach(drw => {
+    const date = parseSheetDate(drw.required_by_date);
+    if (!date || (drw.status || '').toLowerCase().trim() === 'received') return;
+    const mx = Math.round((date - minD) / 86400000) * PX_PER_DAY;
+    if (mx < 0 || mx > totalChartWidth) return;
+
+    const line = document.createElement('div');
+    line.className = 'gantt-overlay-line gantt-overlay-drw';
+    line.style.cssText = `
+      position: absolute;
+      left: ${LABEL_W + mx}px;
+      top: 0;
+      width: 1.5px;
+      height: ${totalChartHeight}px;
+      background: repeating-linear-gradient(
+        to bottom,
+        #7d3c98 0px,
+        #7d3c98 5px,
+        transparent 5px,
+        transparent 10px
+      );
+      opacity: 0.6;
+      pointer-events: none;
+      z-index: 2;
+      display: ${ganttOverlayState.drw ? 'block' : 'none'};
+    `;
+
+    const hit = document.createElement('div');
+    hit.className = 'gantt-overlay-drw';
+    hit.style.cssText = `
+      position: absolute;
+      left: ${LABEL_W + mx - 8}px;
+      top: 0;
+      width: 16px;
+      height: ${totalChartHeight}px;
+      cursor: pointer;
+      z-index: 3;
+      display: ${ganttOverlayState.drw ? 'block' : 'none'};
+    `;
+    hit.onclick = (e) => {
+      e.stopPropagation();
+      showOverlayPopover(e, {
+        icon: '▲',
+        color: '#7d3c98',
+        title: drw.drawing_name || drw.name || 'Drawing',
+        rows: [
+          ['Drawing Name', drw.drawing_name || drw.name || '—'],
+          ['Type', drw.drawing_type || drw.type || '—'],
+          ['Issued By', drw.issued_by || '—'],
+          ['Required By', fmtDate(drw.required_by_date)],
+          ['Status', drw.status || '—']
+        ]
+      });
+    };
+    ganttBarsContainer.appendChild(line);
+    ganttBarsContainer.appendChild(hit);
   });
 
-  const maxRowUsed    = usedLabelSlots.length > 0 ? Math.max(...usedLabelSlots.map(s => s.row)) : 0;
-  const labelTrackH   = Math.max(36, maxRowUsed * 20 + 18);
-
-  // ── MRD canvas row (diamonds + canvas stems) ──
-  if (mrdMats.length > 0) {
-    const MRD_H = 32;
-    const mrdRow = document.createElement('div');
-    mrdRow.style.cssText = 'display:flex;align-items:flex-start;position:relative';
-
-    const mrdSpacer = document.createElement('div');
-    mrdSpacer.style.cssText = `width:${LABEL_W}px;flex-shrink:0`;
-    mrdRow.appendChild(mrdSpacer);
-
-    const mrdCanvasWrap = document.createElement('div');
-    mrdCanvasWrap.style.cssText = `position:relative;width:${chartW}px;height:${MRD_H}px;flex-shrink:0;overflow:visible`;
-
-    const mrdCanvas = document.createElement('canvas');
-    mrdCanvas.width  = chartW;
-    mrdCanvas.height = MRD_H;
-    const mrdCtx = mrdCanvas.getContext('2d');
-
-    mrdMats.forEach(m => {
-      const mDate = parseSheetDate(m.required_on_site_date);
-      const mx    = Math.round((mDate - minD) / 86400000) * PX_PER_DAY;
-      const col   = getMRDColor(m, isDark);
-      const cy    = 9;  // diamond centre Y
-      const sz    = 5;  // half-width of diamond
-
-      // Diamond (rotated square)
-      mrdCtx.fillStyle = col;
-      mrdCtx.beginPath();
-      mrdCtx.moveTo(mx,      cy - sz); // top
-      mrdCtx.lineTo(mx + sz, cy);      // right
-      mrdCtx.lineTo(mx,      cy + sz); // bottom
-      mrdCtx.lineTo(mx - sz, cy);      // left
-      mrdCtx.closePath();
-      mrdCtx.fill();
-
-      // Stem down from diamond to canvas bottom
-      mrdCtx.strokeStyle = col;
-      mrdCtx.lineWidth   = 1.5;
-      mrdCtx.beginPath();
-      mrdCtx.moveTo(mx, cy + sz);
-      mrdCtx.lineTo(mx, MRD_H);
-      mrdCtx.stroke();
-
-      const tap = document.createElement('div');
-      tap.style.cssText = `position:absolute;left:${mx - 22}px;top:0;width:44px;height:${MRD_H}px;cursor:pointer;z-index:10`;
-      tap.addEventListener('click', e => { e.stopPropagation(); showMRDPopover(tap, m, col); });
-      mrdCanvasWrap.appendChild(tap);
-    });
-
-    mrdCanvasWrap.insertBefore(mrdCanvas, mrdCanvasWrap.firstChild);
-    mrdRow.appendChild(mrdCanvasWrap);
-    container.appendChild(mrdRow);
-  }
-
-  // ── Drawing canvas row (triangles + canvas stems) ──
-  if (drawingPins.length > 0) {
-    const DRW_H = 32;
-    const drwRow = document.createElement('div');
-    drwRow.style.cssText = 'display:flex;align-items:flex-start;position:relative';
-
-    const drwSpacer = document.createElement('div');
-    drwSpacer.style.cssText = `width:${LABEL_W}px;flex-shrink:0`;
-    drwRow.appendChild(drwSpacer);
-
-    const drwCanvasWrap = document.createElement('div');
-    drwCanvasWrap.style.cssText = `position:relative;width:${chartW}px;height:${DRW_H}px;flex-shrink:0;overflow:visible`;
-
-    const drwCanvas = document.createElement('canvas');
-    drwCanvas.width  = chartW;
-    drwCanvas.height = DRW_H;
-    const drwCtx = drwCanvas.getContext('2d');
-
-    drawingPins.forEach(drw => {
-      const dDate = parseSheetDate(drw.required_by_date);
-      const mx    = Math.round((dDate - minD) / 86400000) * PX_PER_DAY;
-      const col   = getDrawingColor(drw);
-      const cy    = 8;
-      const sz    = 5;
-
-      drwCtx.fillStyle = col;
-      drwCtx.beginPath();
-      drwCtx.moveTo(mx,      cy - sz);
-      drwCtx.lineTo(mx + sz, cy + sz);
-      drwCtx.lineTo(mx - sz, cy + sz);
-      drwCtx.closePath();
-      drwCtx.fill();
-
-      // Stem down from triangle to canvas bottom
-      drwCtx.strokeStyle = col;
-      drwCtx.lineWidth   = 1.5;
-      drwCtx.beginPath();
-      drwCtx.moveTo(mx, cy + sz);
-      drwCtx.lineTo(mx, DRW_H);
-      drwCtx.stroke();
-
-      const tap = document.createElement('div');
-      tap.style.cssText = `position:absolute;left:${mx - 22}px;top:0;width:44px;height:${DRW_H}px;cursor:pointer;z-index:10`;
-      tap.addEventListener('click', e => { e.stopPropagation(); showDrawingPopover(tap, drw, col); });
-      drwCanvasWrap.appendChild(tap);
-    });
-
-    drwCanvasWrap.insertBefore(drwCanvas, drwCanvasWrap.firstChild);
-    drwRow.appendChild(drwCanvasWrap);
-    container.appendChild(drwRow);
-  }
-
-  // ── Combined label row for all pins (collision-detected, shared) ──
-  if (pinData.length > 0) {
-    const pinLabelRow = document.createElement('div');
-    pinLabelRow.style.cssText = 'display:flex;align-items:flex-start;position:relative';
-
-    const pinLblSpacer = document.createElement('div');
-    pinLblSpacer.style.cssText = `width:${LABEL_W}px;flex-shrink:0`;
-    pinLabelRow.appendChild(pinLblSpacer);
-
-    const pinLblTrack = document.createElement('div');
-    pinLblTrack.style.cssText = `position:relative;width:${chartW}px;height:${labelTrackH}px;flex-shrink:0;overflow:visible`;
-
-    pinData.forEach(pin => {
-      // Extend stem from top of label track down to the label's row
-      if (pin.labelRow > 0) {
-        const stemExt = document.createElement('div');
-        const stemH   = pin.labelRow * 18 + 4;
-        stemExt.style.cssText = `position:absolute;left:${pin.mx}px;top:0;width:1.5px;height:${stemH}px;background:${pin.col};transform:translateX(-50%);opacity:0.7`;
-        pinLblTrack.appendChild(stemExt);
-      }
-
-      const lbl = document.createElement('span');
-      lbl.style.cssText = `position:absolute;left:${pin.mx - 2}px;top:${pin.labelRow * 18}px;font-family:'DM Mono',monospace;font-size:9px;color:${pin.col};white-space:nowrap;pointer-events:none`;
-      lbl.textContent = pin.name;
-      pinLblTrack.appendChild(lbl);
-    });
-
-    pinLabelRow.appendChild(pinLblTrack);
-    container.appendChild(pinLabelRow);
-  }
+  container.appendChild(ganttBarsContainer);
 
   // ── TODAY DATE LABEL (HTML, below last row) ──
   const todayLabelRow = document.createElement('div');
@@ -1446,6 +1410,27 @@ function buildGantt(activities, dprs, today, startDate, endDate) {
   todayLabelRow.appendChild(todayTrack);
   container.appendChild(todayLabelRow);
 
+  const toggles = document.createElement('div');
+  toggles.id = 'ganttToggles';
+  toggles.style.cssText = `
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 8px 0 6px 0;
+    flex-wrap: wrap;
+  `;
+  toggles.innerHTML = `
+    <button id="toggleMRD" class="gantt-toggle-btn ${ganttOverlayState.mrd ? 'active' : ''}"
+      onclick="toggleGanttOverlay('mrd')">
+      ◆ Material Dates
+    </button>
+    <button id="toggleDRW" class="gantt-toggle-btn ${ganttOverlayState.drw ? 'active' : ''}"
+      onclick="toggleGanttOverlay('drw')">
+      ▲ Drawing Deadlines
+    </button>
+  `;
+  wrap.appendChild(toggles);
+
   scrollDiv.appendChild(container);
   wrap.appendChild(scrollDiv);
 
@@ -1459,8 +1444,8 @@ function buildGantt(activities, dprs, today, startDate, endDate) {
     { color: '#a93226', label: 'Delayed >7d' },
     { color: '#c8c0b8', label: 'Not Started' },
     { color: '#7d3c98', label: 'Work Increase' },
-    { color: isDark ? '#d4872a' : '#b8711f', label: '◆ MRD Pin' },
-    { color: '#7d3c98', label: '▲ Drawing Deadline' },
+    { color: isDark ? '#d4872a' : '#b8711f', label: '╎ Material Date' },
+    { color: '#7d3c98', label: '╎ Drawing Deadline' },
   ];
   legendItems.forEach(({ color, label }) => {
     const item = document.createElement('div');
@@ -2357,6 +2342,70 @@ function getMRDColor(m, isDark) {
   if (s.includes('received')) return '#1e8449';
   // NOT YET INFORMED or CLIENT ACTIONING — amber
   return isDark ? '#d4872a' : '#b8711f';
+}
+
+function showOverlayPopover(e, data) {
+  const old = document.getElementById('overlayPopover');
+  if (old) old.remove();
+
+  const escapeHtml = value => String(value ?? '—')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
+  const pop = document.createElement('div');
+  pop.id = 'overlayPopover';
+  pop.style.cssText = `
+    position: fixed;
+    z-index: 9999;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    min-width: 200px;
+    max-width: 260px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+  `;
+
+  const x = Math.min(e.clientX + 12, window.innerWidth - 280);
+  const y = Math.min(e.clientY - 10, window.innerHeight - 200);
+  pop.style.left = Math.max(10, x) + 'px';
+  pop.style.top = Math.max(10, y) + 'px';
+
+  pop.innerHTML = `
+    <div style="font-weight:600;color:${data.color};
+      margin-bottom:8px;font-size:13px;">
+      ${escapeHtml(data.icon)} ${escapeHtml(data.title)}
+    </div>
+    ${data.rows.map(([k,v]) => `
+      <div style="display:flex;justify-content:space-between;
+        gap:8px;padding:3px 0;border-bottom:1px solid var(--border);">
+        <span style="color:var(--text-dim);font-size:12px;">${escapeHtml(k)}</span>
+        <span style="font-weight:500;font-size:12px;
+          text-align:right;">${escapeHtml(v)}</span>
+      </div>
+    `).join('')}
+    <div style="text-align:right;margin-top:8px;">
+      <span id="overlayPopoverClose" style="font-size:11px;color:var(--text-dim);
+        cursor:pointer;">✕ close</span>
+    </div>
+  `;
+
+  document.body.appendChild(pop);
+  document.getElementById('overlayPopoverClose').onclick = () => pop.remove();
+
+  setTimeout(() => {
+    document.addEventListener('click', function closePop(ev) {
+      if (!pop.contains(ev.target)) {
+        pop.remove();
+        document.removeEventListener('click', closePop);
+      }
+    });
+  }, 100);
 }
 
 function showMRDPopover(anchor, m, color) {
