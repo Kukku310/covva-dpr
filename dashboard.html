@@ -52,7 +52,7 @@ body {
 .header {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  padding: 14px 20px;
+  padding: 14px 12px;
   position: sticky;
   top: 0;
   z-index: 200;
@@ -154,7 +154,7 @@ body {
 .export-btn:hover { background: var(--amber); color: var(--bg); }
 
 /* ── MAIN ── */
-.main { padding: 20px; max-width: 960px; margin: 0 auto; }
+.main { padding: 20px 12px; max-width: 1280px; margin: 0 auto; }
 
 /* ── SECTION TITLE ── */
 .section-title {
@@ -217,7 +217,7 @@ body {
   overflow: hidden;
   margin-bottom: 12px;
 }
-.gantt-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+.gantt-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 6px; }
 /* Hybrid Gantt layout */
 .g-container { display: inline-block; min-width: 100%; user-select: none; }
 .g-axis-row { display: flex; align-items: flex-end; height: 28px; }
@@ -243,7 +243,8 @@ body {
   font-weight: 500;
   color: var(--text);
   text-align: right;
-  padding-right: 12px;
+  padding-left: 8px;
+  padding-right: 16px;
   line-height: 1.3;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -255,8 +256,9 @@ body {
   font-size: 10px;
   font-weight: 500;
   color: var(--amber);
-  padding: 4px 0;
+  padding: 2px 0;
   display: flex;
+  height: 18px;
 }
 
 /* ── GANTT LEGEND ── */
@@ -460,6 +462,7 @@ body {
 .badge-amber  { color: var(--amber); border-color: rgba(184,113,31,0.4); background: var(--amber-glow); }
 .badge-blue   { color: #2980b9; border-color: rgba(41,128,185,0.4); background: rgba(41,128,185,0.08); }
 .badge-green  { color: #1e8449; border-color: rgba(30,132,73,0.4); background: rgba(30,132,73,0.08); }
+.badge-grey   { color: var(--grey); border-color: rgba(154,145,136,0.4); background: rgba(154,145,136,0.08); }
 
 /* ── DPR ARCHIVE ── */
 .dpr-archive {
@@ -1000,20 +1003,24 @@ function renderDashboard() {
   main.appendChild(buildSectionTitle('③', 'Client Material — Inform & Track'));
   main.appendChild(buildMaterialsSection(d.materials || []));
 
-  // ── Section 4: DPR Archive (internal) ──
+  // ── Section 4: Drawings ──
+  main.appendChild(buildSectionTitle('④', 'Drawings Awaited'));
+  main.appendChild(buildDrawingsSection(d.drawings || []));
+
+  // ── Section 5: DPR Archive (internal) ──
   if (!isClientView) {
-    main.appendChild(buildSectionTitle('④', 'DPR Archive', true));
+    main.appendChild(buildSectionTitle('⑤', 'DPR Archive', true));
     main.appendChild(buildDPRArchive(d.dprs || []));
   }
 
-  // ── Section 5: Flags (internal) ──
+  // ── Section 6: Flags (internal) ──
   if (!isClientView) {
-    main.appendChild(buildSectionTitle('⑤', 'Flags & Actions', true));
-    main.appendChild(buildFlags(d.activities || [], d.materials || [], today));
+    main.appendChild(buildSectionTitle('⑥', 'Flags & Actions', true));
+    main.appendChild(buildFlags(d.activities || [], d.materials || [], d.drawings || [], today));
   }
 
-  // ── Section 6: Procurement Schedule (internal + client) ──
-  main.appendChild(buildSectionTitle('⑥', 'Procurement Schedule'));
+  // ── Section 7: Procurement Schedule (internal + client) ──
+  main.appendChild(buildSectionTitle('⑦', 'Procurement Schedule'));
   main.appendChild(buildProcurementSection(d.materials || []));
 }
 
@@ -1051,8 +1058,8 @@ function buildGantt(activities, dprs, today, startDate, endDate) {
   maxD.setMonth(maxD.getMonth() + 1); maxD.setDate(1);
 
   const ROW_H      = 36;
-  const LABEL_W    = 170;
-  const PX_PER_DAY = 6;
+  const LABEL_W    = 200;
+  const PX_PER_DAY = 7;
   const totalDays  = Math.ceil((maxD - minD) / 86400000);
   const chartW     = totalDays * PX_PER_DAY;
 
@@ -1128,6 +1135,8 @@ function buildGantt(activities, dprs, today, startDate, endDate) {
     const label = document.createElement('div');
     label.className = 'g-label';
     label.style.width = LABEL_W + 'px';
+    label.style.borderRight = '1px solid var(--border)';
+    label.style.marginRight = '0';
     label.textContent = act.activity || act.name || '';
     row.appendChild(label);
 
@@ -1208,8 +1217,8 @@ function buildGantt(activities, dprs, today, startDate, endDate) {
   // ── MRD MARKERS (canvas diamonds + HTML labels, between activity rows and today label) ──
   const mrdMats = (dashData && dashData.materials || []).filter(m => {
     if (!m.required_on_site_date || !m.required_on_site_date.trim()) return false;
-    const d = new Date(m.required_on_site_date);
-    if (isNaN(d)) return false;
+    const d = parseSheetDate(m.required_on_site_date);
+    if (!d) return false;
     if (isClientView) {
       const s = (m.status || '').toLowerCase();
       if (s.includes('received')) return false;
@@ -1238,7 +1247,7 @@ function buildGantt(activities, dprs, today, startDate, endDate) {
     const mrdCtx = mrdCanvas.getContext('2d');
 
     mrdMats.forEach(m => {
-      const mDate = new Date(m.required_on_site_date);
+      const mDate = parseSheetDate(m.required_on_site_date);
       const mx    = Math.round((mDate - minD) / 86400000) * PX_PER_DAY;
       const col   = getMRDColor(m, isDark);
       const cy    = 9;   // diamond centre Y
@@ -1285,7 +1294,7 @@ function buildGantt(activities, dprs, today, startDate, endDate) {
     mrdLblTrack.style.cssText = `position:relative;width:${chartW}px;height:20px;flex-shrink:0;overflow:visible`;
 
     mrdMats.forEach(m => {
-      const mDate = new Date(m.required_on_site_date);
+      const mDate = parseSheetDate(m.required_on_site_date);
       const mx    = Math.round((mDate - minD) / 86400000) * PX_PER_DAY;
       const col   = getMRDColor(m, isDark);
       const raw   = m.material || '';
@@ -1302,21 +1311,126 @@ function buildGantt(activities, dprs, today, startDate, endDate) {
     container.appendChild(mrdLabelRow);
   }
 
+  // ── DRAWING DEADLINE MARKERS (canvas triangles + HTML labels) ──
+  const drawingPins = (dashData && dashData.drawings || []).filter(drw => {
+    if (!drw.required_by_date || !String(drw.required_by_date).trim()) return false;
+    if ((drw.status || '').toLowerCase().trim() === 'received') return false;
+    const d = parseSheetDate(drw.required_by_date);
+    if (!d) return false;
+    const mx = Math.round((d - minD) / 86400000) * PX_PER_DAY;
+    return mx >= 0 && mx <= chartW;
+  });
+
+  if (drawingPins.length > 0) {
+    const DRW_H = 32;
+
+    const drwRow = document.createElement('div');
+    drwRow.style.cssText = 'display:flex;align-items:flex-start;position:relative';
+
+    const drwSpacer = document.createElement('div');
+    drwSpacer.style.cssText = `width:${LABEL_W}px;flex-shrink:0`;
+    drwRow.appendChild(drwSpacer);
+
+    const drwCanvasWrap = document.createElement('div');
+    drwCanvasWrap.style.cssText = `position:relative;width:${chartW}px;height:${DRW_H}px;flex-shrink:0;overflow:visible`;
+
+    const drwCanvas = document.createElement('canvas');
+    drwCanvas.width  = chartW;
+    drwCanvas.height = DRW_H;
+    const drwCtx = drwCanvas.getContext('2d');
+
+    drawingPins.forEach(drw => {
+      const dDate = parseSheetDate(drw.required_by_date);
+      const mx    = Math.round((dDate - minD) / 86400000) * PX_PER_DAY;
+      const col   = getDrawingColor(drw);
+      const cy    = 8;
+      const sz    = 5;
+
+      drwCtx.fillStyle = col;
+      drwCtx.beginPath();
+      drwCtx.moveTo(mx, cy - sz);
+      drwCtx.lineTo(mx + sz, cy + sz);
+      drwCtx.lineTo(mx - sz, cy + sz);
+      drwCtx.closePath();
+      drwCtx.fill();
+
+      drwCtx.strokeStyle = col;
+      drwCtx.lineWidth   = 2;
+      drwCtx.beginPath();
+      drwCtx.moveTo(mx, cy + sz);
+      drwCtx.lineTo(mx, cy + sz + 12);
+      drwCtx.stroke();
+
+      const tap = document.createElement('div');
+      tap.style.cssText = `position:absolute;left:${mx - 22}px;top:0;width:44px;height:${DRW_H}px;cursor:pointer;z-index:10`;
+      tap.addEventListener('click', e => { e.stopPropagation(); showDrawingPopover(tap, drw, col); });
+      drwCanvasWrap.appendChild(tap);
+    });
+
+    drwCanvasWrap.insertBefore(drwCanvas, drwCanvasWrap.firstChild);
+    drwRow.appendChild(drwCanvasWrap);
+    container.appendChild(drwRow);
+
+    const drwLabelRow = document.createElement('div');
+    drwLabelRow.style.cssText = 'display:flex;align-items:flex-start;position:relative;height:20px;overflow:visible';
+
+    const drwLblSpacer = document.createElement('div');
+    drwLblSpacer.style.cssText = `width:${LABEL_W}px;flex-shrink:0`;
+    drwLabelRow.appendChild(drwLblSpacer);
+
+    const drwLblTrack = document.createElement('div');
+    drwLblTrack.style.cssText = `position:relative;width:${chartW}px;height:20px;flex-shrink:0;overflow:visible`;
+
+    drawingPins.forEach(drw => {
+      const dDate = parseSheetDate(drw.required_by_date);
+      const mx    = Math.round((dDate - minD) / 86400000) * PX_PER_DAY;
+      const col   = getDrawingColor(drw);
+      const raw   = drw.drawing_name || '';
+      const name  = raw.length > 12 ? raw.substring(0, 12) + '…' : raw;
+      const topOff = Math.abs(mx - todayX) < 20 ? 14 : 0;
+
+      const lbl = document.createElement('span');
+      lbl.style.cssText = `position:absolute;left:${mx - 2}px;top:${topOff}px;font-family:'DM Mono',monospace;font-size:9px;color:${col};white-space:nowrap;pointer-events:none`;
+      lbl.textContent = name;
+      drwLblTrack.appendChild(lbl);
+    });
+
+    drwLabelRow.appendChild(drwLblTrack);
+    container.appendChild(drwLabelRow);
+  }
+
   // ── TODAY DATE LABEL (HTML, below last row) ──
   const todayLabelRow = document.createElement('div');
   todayLabelRow.className = 'g-today-label';
+  todayLabelRow.style.position = 'relative';
+  todayLabelRow.style.height = '18px';
 
   const todaySpacer = document.createElement('div');
   todaySpacer.style.cssText = `width:${LABEL_W}px;flex-shrink:0`;
   todayLabelRow.appendChild(todaySpacer);
 
+  const todayTrack = document.createElement('div');
+  todayTrack.style.cssText = `position:relative;width:${chartW}px;height:18px;flex-shrink:0;overflow:visible`;
+
   const todaySpan = document.createElement('span');
   const dd  = String(today.getDate()).padStart(2, '0');
   const mon = today.toLocaleDateString('en-GB', { month: 'short' });
   const yr  = today.getFullYear().toString().slice(2);
-  todaySpan.style.cssText = `position:relative;left:${todayX + 4}px;color:${amberC}`;
+  todaySpan.style.cssText = `
+    position: absolute;
+    left: ${todayX}px;
+    transform: translateX(-50%);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--amber);
+    white-space: nowrap;
+    background: var(--bg);
+    padding: 0 3px;
+  `;
   todaySpan.textContent = `${dd} ${mon} '${yr}`;
-  todayLabelRow.appendChild(todaySpan);
+  todayTrack.appendChild(todaySpan);
+  todayLabelRow.appendChild(todayTrack);
   container.appendChild(todayLabelRow);
 
   scrollDiv.appendChild(container);
@@ -1333,6 +1447,7 @@ function buildGantt(activities, dprs, today, startDate, endDate) {
     { color: '#c8c0b8', label: 'Not Started' },
     { color: '#7d3c98', label: 'Work Increase' },
     { color: isDark ? '#d4872a' : '#b8711f', label: '◆ MRD Pin' },
+    { color: '#7d3c98', label: '▲ Drawing Deadline' },
   ];
   legendItems.forEach(({ color, label }) => {
     const item = document.createElement('div');
@@ -1629,6 +1744,64 @@ function getMatStatus(m) {
   return { label: s.toUpperCase() || 'UNKNOWN', cls: 'badge-amber' };
 }
 
+// ─── DRAWINGS SECTION ─────────────────────────────────────────
+function buildDrawingsSection(drawings) {
+  const wrap = document.createElement('div');
+  wrap.className = 'material-section';
+
+  const filtered = isClientView
+    ? drawings.filter(d => (d.status || '').toLowerCase().trim() !== 'received')
+    : drawings;
+
+  if (!filtered.length) {
+    wrap.innerHTML = '<div class="empty-state">No drawing requirements set up yet.</div>';
+    return wrap;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  filtered.forEach(drw => {
+    const row = document.createElement('div');
+    row.className = 'material-row';
+
+    const nameDiv = document.createElement('div');
+    nameDiv.innerHTML = `<div class="material-name">${drw.drawing_name || '—'}</div><div class="material-area">${drw.drawing_type || ''}</div>`;
+
+    const reqDate = parseSheetDate(drw.required_by_date);
+    const overdue = reqDate && reqDate < today && (drw.status || '').toLowerCase().trim() !== 'received';
+
+    const metaDiv = document.createElement('div');
+    metaDiv.className = 'material-meta';
+    let metaHtml = '';
+    if (drw.issued_by) metaHtml += `Issued By: ${drw.issued_by}<br>`;
+    if (drw.required_by_date) metaHtml += `Required By: <span style="${overdue ? 'color:var(--red)' : ''}">${drw.required_by_date}</span><br>`;
+    if (drw.notes) metaHtml += drw.notes;
+    metaDiv.innerHTML = metaHtml || '—';
+
+    const badge = document.createElement('span');
+    const status = getDrawingStatus(drw);
+    badge.className = `status-badge ${status.cls}`;
+    badge.textContent = status.label;
+
+    row.appendChild(nameDiv);
+    row.appendChild(metaDiv);
+    row.appendChild(badge);
+    wrap.appendChild(row);
+  });
+
+  return wrap;
+}
+
+function getDrawingStatus(drw) {
+  const s = (drw.status || '').toLowerCase().trim();
+  if (s === 'awaited') return { label: 'AWAITED', cls: 'badge-red' };
+  if (s === 'received') return { label: 'RECEIVED', cls: 'badge-green' };
+  if (s === 'revision pending') return { label: 'REVISION PENDING', cls: 'badge-amber' };
+  if (s === 'superseded') return { label: 'SUPERSEDED', cls: 'badge-grey' };
+  return { label: s.toUpperCase() || 'UNKNOWN', cls: 'badge-amber' };
+}
+
 // ─── DPR ARCHIVE ──────────────────────────────────────────────
 function buildDPRArchive(dprs) {
   const wrap = document.createElement('div');
@@ -1666,7 +1839,7 @@ window.toggleDPREntry = function(i) {
 };
 
 // ─── FLAGS ────────────────────────────────────────────────────
-function buildFlags(activities, materials, today) {
+function buildFlags(activities, materials, drawings, today) {
   const wrap = document.createElement('div');
   wrap.className = 'flags-section';
 
@@ -1692,6 +1865,16 @@ function buildFlags(activities, materials, today) {
     if (m.target_date && new Date(m.target_date) < today) {
       const overdueDays = Math.round((today - new Date(m.target_date)) / 86400000);
       flags.push({ icon: '🔴', title: `Overdue client material — ${m.material || m.name}`, detail: `Target: ${m.target_date} · ${overdueDays} day${overdueDays > 1 ? 's' : ''} overdue`, type: 'overdue' });
+    }
+  });
+
+  drawings.forEach(drw => {
+    if (drw.required_by_date && new Date(drw.required_by_date) < today
+        && (drw.status || '').toLowerCase().trim() !== 'received') {
+      const overdueDays = Math.round((today - new Date(drw.required_by_date)) / 86400000);
+      flags.push({ icon: '🟣', title: `Drawing overdue — ${drw.drawing_name}`,
+        detail: `Required by: ${drw.required_by_date} · ${overdueDays} day(s) overdue`,
+        type: 'drw_overdue' });
     }
   });
 
@@ -1729,7 +1912,7 @@ function buildFlags(activities, materials, today) {
 function buildPDFGanttFromData(activities, today) {
   // Always light-mode for print
   const ROW_H   = 28;
-  const LABEL_W = 180;
+  const LABEL_W = 200;
   const PX_DAY  = 4;
   const gridC   = '#e0dbd3';
   const amberC  = '#b8711f';
@@ -1789,7 +1972,7 @@ function buildPDFGanttFromData(activities, today) {
     row.style.cssText = `display:flex;align-items:center;height:${ROW_H}px`;
 
     const lbl = document.createElement('div');
-    lbl.style.cssText = `width:${LABEL_W}px;flex-shrink:0;font-family:'DM Sans',sans-serif;font-size:10px;font-weight:500;color:#1a1714;text-align:right;padding-right:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap`;
+    lbl.style.cssText = `width:${LABEL_W}px;flex-shrink:0;font-family:'DM Sans',sans-serif;font-size:10px;font-weight:500;color:#1a1714;text-align:right;padding-left:8px;padding-right:16px;border-right:1px solid #e0dbd3;margin-right:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap`;
     lbl.textContent = act.activity || act.name || '';
     row.appendChild(lbl);
 
@@ -1971,6 +2154,23 @@ function openPDFModal() {
     : '<div style="font-family:DM Mono,monospace;font-size:11px;color:#9a9188">No pending client materials.</div>';
   document.getElementById('pdfMaterialsContainer').innerHTML = matsHtml;
 
+  // Drawings (pending only)
+  const pendingDrawings = (dashData.drawings || []).filter(drw => (drw.status || '').toLowerCase().trim() !== 'received');
+  let drwHtml = '<div class="modal-section-title" style="margin-top:16px">Drawings Awaited from Architect / Consultant</div>';
+  if (pendingDrawings.length) {
+    drwHtml += '<table style="width:100%;border-collapse:collapse;font-family:\'DM Mono\',monospace;font-size:10px;margin-top:4px">';
+    drwHtml += '<tr style="border-bottom:1px solid #e0dbd3;background:#f0ece6"><th style="text-align:left;padding:4px 8px;color:#5c5148">Drawing Name</th><th style="text-align:left;padding:4px 8px;color:#5c5148">Type</th><th style="text-align:left;padding:4px 8px;color:#5c5148">Issued By</th><th style="text-align:left;padding:4px 8px;color:#5c5148">Required By</th><th style="text-align:left;padding:4px 8px;color:#5c5148">Status</th></tr>';
+    pendingDrawings.forEach(drw => {
+      const s = getDrawingStatus(drw);
+      const sCol = s.cls.includes('red') ? '#a93226' : s.cls.includes('green') ? '#1e8449' : s.cls.includes('grey') ? '#9a9188' : '#b8711f';
+      drwHtml += `<tr style="border-bottom:1px solid #f0ece6"><td style="padding:3px 8px">${drw.drawing_name||'—'}</td><td style="padding:3px 8px">${drw.drawing_type||'—'}</td><td style="padding:3px 8px">${drw.issued_by||'—'}</td><td style="padding:3px 8px">${drw.required_by_date||'—'}</td><td style="padding:3px 8px;color:${sCol}">${s.label}</td></tr>`;
+    });
+    drwHtml += '</table>';
+  } else {
+    drwHtml += '<div style="font-family:DM Mono,monospace;font-size:11px;color:#9a9188">No pending drawings.</div>';
+  }
+  document.getElementById('pdfMaterialsContainer').innerHTML += drwHtml;
+
   // Procurement Schedule (PDF — client view rules: no RECEIVED)
   const procPdfMats = (dashData.materials || [])
     .filter(m => m.required_on_site_date && m.required_on_site_date.trim())
@@ -2072,7 +2272,7 @@ function showMRDPopover(anchor, m, color) {
   hideMRDPopover();
   const status  = getMatStatus(m);
   const dateStr = m.required_on_site_date
-    ? new Date(m.required_on_site_date).toLocaleDateString('en-GB', {day:'2-digit',month:'2-digit',year:'numeric'})
+    ? parseSheetDate(m.required_on_site_date).toLocaleDateString('en-GB', {day:'2-digit',month:'2-digit',year:'numeric'})
     : '—';
 
   const pop = document.createElement('div');
@@ -2109,6 +2309,48 @@ function showMRDPopover(anchor, m, color) {
 function hideMRDPopover() {
   const p = document.getElementById('mrdPopover');
   if (p) p.remove();
+}
+
+function getDrawingColor(drw) {
+  const s = (drw.status || '').toLowerCase().trim();
+  if (s === 'revision pending') return '#a93226';
+  if (s === 'superseded') return '#9a9188';
+  return '#7d3c98';
+}
+
+function showDrawingPopover(anchor, drw, color) {
+  hideMRDPopover();
+  const date = drw.required_by_date ? parseSheetDate(drw.required_by_date) : null;
+  const dateStr = date
+    ? date.toLocaleDateString('en-GB', {day:'2-digit',month:'2-digit',year:'numeric'})
+    : '—';
+
+  const pop = document.createElement('div');
+  pop.id = 'mrdPopover';
+  pop.className = 'mrd-popover';
+
+  let html = `<div class="mrd-popover-name">${drw.drawing_name || '—'}</div>`;
+  if (drw.drawing_type) html += `<div class="mrd-popover-area">${drw.drawing_type}</div>`;
+  html += `<div class="mrd-popover-row">Issued By: <strong>${drw.issued_by || '—'}</strong></div>`;
+  html += `<div class="mrd-popover-row">Required By: <strong>${dateStr}</strong></div>`;
+  html += `<div class="mrd-popover-row">Status: <strong style="color:${color}">${drw.status || '—'}</strong></div>`;
+  pop.innerHTML = html;
+
+  pop.style.top  = '-9999px';
+  pop.style.left = '-9999px';
+  document.body.appendChild(pop);
+
+  const aRect = anchor.getBoundingClientRect();
+  const pRect = pop.getBoundingClientRect();
+  const left  = Math.min(aRect.left, window.innerWidth - pRect.width - 10);
+
+  pop.style.left = Math.max(10, left) + 'px';
+  pop.style.position = 'fixed';
+  pop.style.top = (aRect.top - pRect.height - 8) + 'px';
+
+  setTimeout(() => {
+    document.addEventListener('click', hideMRDPopover, { once: true });
+  }, 10);
 }
 
 // ─── PROCUREMENT SCHEDULE ─────────────────────────────────────

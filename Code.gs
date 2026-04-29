@@ -341,6 +341,11 @@ function serveDashboardData(project) {
       'required_on_site_date', 'qty_required', 'last_delivery_note', 'last_delivery_at'
     ]);
 
+    const drawings = readTab(ss, safeProject + ' — Drawings', [
+      'drawing_name', 'drawing_type', 'issued_by', 'required_by_date',
+      'date_received', 'status', 'notes'
+    ]);
+
     const dprs = readTab(ss, safeProject + ' — DPR', [
       'date', 'project', 'report', 'logged_at'
     ]);
@@ -360,6 +365,7 @@ function serveDashboardData(project) {
       project: safeProject,
       activities: validActivities,
       materials: materials,
+      drawings: drawings,
       dprs: dprs
     };
 
@@ -382,6 +388,7 @@ function serveSetupData(project) {
 
     const activities = readTabRaw(ss, safeProject + ' — Timeline');
     const materials  = readTabRaw(ss, safeProject + ' — Materials');
+    const drawings   = readTabRaw(ss, safeProject + ' — Drawings');
     const dprs       = readTabRaw(ss, safeProject + ' — DPR');
 
     // Convert DPR rows to objects with date + report
@@ -394,6 +401,7 @@ function serveSetupData(project) {
       project: safeProject,
       activities: activities,
       materials: materials,
+      drawings: drawings,
       dprs: dprObjects
     });
   } catch(err) {
@@ -523,6 +531,18 @@ function saveProjectData(payload) {
       [100, 160, 140, 100, 90, 200, 100, 180, 110, 140, 160, 110, 110, 140, 200, 100, 140, 120, 100, 200, 120]
     );
 
+    // ─── Drawings tab ────────────────────────────────────────
+    const drwHeaders = [
+      'Drawing Name', 'Drawing Type', 'Issued By', 'Required By Date',
+      'Date Received', 'Status', 'Notes'
+    ];
+    const shouldTouchDrawings = payload.updateType === 'drawing' || payload.drawings;
+    const drwSheet = shouldTouchDrawings
+      ? getOrCreateTab(ss, project + ' — Drawings', drwHeaders,
+          [180, 130, 150, 130, 130, 150, 220]
+        )
+      : null;
+
     // ─── DPR tab (just ensure it exists) ─────────────────────
     getOrCreateTab(ss, project + ' — DPR',
       ['Date', 'Project', 'Formatted Report', 'Logged At'], [100, 140, 500, 160]
@@ -537,6 +557,10 @@ function saveProjectData(payload) {
       upsertMaterialRow(matSheet, payload, now);
       return jsonResponse({ success: true });
     }
+    if (payload.updateType === 'drawing') {
+      upsertDrawingRow(drwSheet, payload, now);
+      return jsonResponse({ success: true });
+    }
 
     // ─── Full project save (new project) ──────────────────────
     (payload.activities || []).forEach(function(act) {
@@ -544,6 +568,9 @@ function saveProjectData(payload) {
     });
     (payload.materials || []).forEach(function(mat) {
       upsertMaterialRow(matSheet, mat, now);
+    });
+    (payload.drawings || []).forEach(function(drw) {
+      upsertDrawingRow(drwSheet, drw, now);
     });
 
     return jsonResponse({ success: true });
@@ -648,6 +675,33 @@ function upsertMaterialRow(sheet, mat, now) {
       overrideFlag, overrideStamp,
       mat.required_on_site_date || '', mat.qty_required || '', '', ''
     ]);
+  }
+}
+
+function upsertDrawingRow(sheet, drw, now) {
+  const data = sheet.getDataRange().getValues();
+  let foundRow = -1;
+  const drawingName = String(drw.drawing_name || '').toLowerCase().trim();
+  const originalDrawingName = String(drw.original_drawing_name || '').toLowerCase().trim();
+  for (let i = 1; i < data.length; i++) {
+    const rowName = String(data[i][0]).toLowerCase().trim();
+    if ((originalDrawingName && rowName === originalDrawingName) || rowName === drawingName) { foundRow = i + 1; break; }
+  }
+
+  const row = [
+    drw.drawing_name || '',
+    drw.drawing_type || '',
+    drw.issued_by || '',
+    drw.required_by_date || '',
+    drw.date_received || '',
+    drw.status || 'Awaited',
+    drw.notes || ''
+  ];
+
+  if (foundRow > 0) {
+    sheet.getRange(foundRow, 1, 1, 7).setValues([row]);
+  } else {
+    sheet.appendRow(row);
   }
 }
 

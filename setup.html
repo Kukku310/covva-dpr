@@ -48,7 +48,7 @@ body {
 .header {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  padding: 14px 20px;
+  padding: 14px 12px;
   position: sticky;
   top: 0;
   z-index: 100;
@@ -86,7 +86,7 @@ body {
 .hdr-btn:hover { border-color: var(--amber); color: var(--amber); }
 
 /* ── MAIN ── */
-.main { padding: 24px 20px; max-width: 960px; margin: 0 auto; }
+.main { padding: 24px 12px; max-width: 1280px; margin: 0 auto; }
 
 /* ── SECTION TITLE ── */
 .section-title {
@@ -592,6 +592,27 @@ table.edit-table {
     </div>
     <button class="add-row-btn" onclick="addMaterialRow('new')">+ Add Material</button>
 
+    <!-- Drawing Table -->
+    <div class="field-label" style="margin-top:20px;margin-bottom:8px">Client Drawings</div>
+    <div class="table-wrap">
+      <table class="edit-table" id="newDrawingTable">
+        <thead>
+          <tr>
+            <th>Drawing Name</th>
+            <th>Drawing Type</th>
+            <th>Issued By</th>
+            <th>Required By Date</th>
+            <th>Date Received</th>
+            <th>Status</th>
+            <th>Notes</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="newDrawingBody"></tbody>
+      </table>
+    </div>
+    <button class="add-row-btn" onclick="addDrawingRow('new')">+ Add Drawing</button>
+
     <br><br>
     <button class="submit-btn" onclick="submitNewProject()">Create Project</button>
     <div class="inline-msg" id="newProjectMsg"></div>
@@ -618,6 +639,7 @@ table.edit-table {
       <div class="tab-bar">
         <button class="tab-btn active" id="tabBtn-activities" onclick="switchEditTab('activities')">Activities</button>
         <button class="tab-btn" id="tabBtn-materials" onclick="switchEditTab('materials')">Materials</button>
+        <button class="tab-btn" id="tabBtn-drawings" onclick="switchEditTab('drawings')">Drawings</button>
         <button class="tab-btn" id="tabBtn-dpr" onclick="switchEditTab('dpr')">DPR Archive</button>
       </div>
 
@@ -669,6 +691,30 @@ table.edit-table {
         </div>
         <button class="add-row-btn" onclick="addMaterialRow('edit')">+ Add Material</button>
         <div class="inline-msg" id="editMaterialMsg"></div>
+      </div>
+
+      <!-- Drawings Tab -->
+      <div class="tab-panel" id="editTab-drawings">
+        <div class="table-wrap">
+          <table class="edit-table" id="editDrawingTable">
+            <thead>
+              <tr>
+                <th>Drawing Name</th>
+                <th>Drawing Type</th>
+                <th>Issued By</th>
+                <th>Required By Date</th>
+                <th>Date Received</th>
+                <th>Status</th>
+                <th>Notes</th>
+                <th>Override</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="editDrawingBody"></tbody>
+          </table>
+        </div>
+        <button class="add-row-btn" onclick="addDrawingRow('edit')">+ Add Drawing</button>
+        <div class="inline-msg" id="editDrawingMsg"></div>
       </div>
 
       <!-- DPR Archive Tab -->
@@ -723,6 +769,8 @@ function toggleTheme() { applyTheme(!document.body.classList.contains('dark')); 
 // ─── ACTIVITY STATUS OPTIONS ──────────────────────────────────
 const ACT_STATUS_OPTIONS = ['Not Started','In Progress','Completed','Delayed'];
 const MAT_STATUS_OPTIONS = ['Not Yet Informed','Client Actioning','Ordered','Partial Delivery','Received'];
+const DRW_TYPE_OPTIONS = ['Architectural','Structural','MEP','Electrical','Plumbing','Interior'];
+const DRW_STATUS_OPTIONS = ['Awaited','Received','Revision Pending','Superseded'];
 
 // ─── ADD ACTIVITY ROW ─────────────────────────────────────────
 function normalizeStatusKey(s) { return (s||'').toLowerCase().replace(/[\s_]+/g,''); }
@@ -732,6 +780,12 @@ function activityStatusSelect(val) {
 }
 function materialStatusSelect(val) {
   return `<select class="td-select">${MAT_STATUS_OPTIONS.map(o => `<option${o===val?' selected':''}>${o}</option>`).join('')}</select>`;
+}
+function drawingTypeSelect(val) {
+  return `<select class="td-select">${DRW_TYPE_OPTIONS.map(o => `<option${o===val?' selected':''}>${o}</option>`).join('')}</select>`;
+}
+function drawingStatusSelect(val) {
+  return `<select class="td-select">${DRW_STATUS_OPTIONS.map(o => `<option${o===val?' selected':''}>${o}</option>`).join('')}</select>`;
 }
 
 function addActivityRow(context, data) {
@@ -810,6 +864,44 @@ function addMaterialRow(context, data) {
   tbody.appendChild(tr);
 }
 
+function addDrawingRow(context, data) {
+  const tbody = document.getElementById(context === 'new' ? 'newDrawingBody' : 'editDrawingBody');
+  const tr = document.createElement('tr');
+
+  if (context === 'edit') {
+    const d = data || {};
+    const originalDrawing = d.drawing_name || d['Drawing Name'] || '';
+    tr.dataset.originalDrawingName = originalDrawing;
+    tr.innerHTML = `
+      <td><input class="td-input" type="text" value="${esc(originalDrawing)}" placeholder="Drawing name"></td>
+      <td>${drawingTypeSelect(d.drawing_type||d['Drawing Type']||'Architectural')}</td>
+      <td><input class="td-input" type="text" value="${esc(d.issued_by||d['Issued By']||'')}"></td>
+      <td><input class="td-input" type="date" value="${toDateInput(d.required_by_date||d['Required By Date']||'')}"></td>
+      <td><input class="td-input" type="date" value="${toDateInput(d.date_received||d['Date Received']||'')}"></td>
+      <td>${drawingStatusSelect(d.status||d['Status']||'Awaited')}</td>
+      <td><input class="td-input" type="text" value="${esc(d.notes||d['Notes']||'')}"></td>
+      <td><button class="override-chip${isOverrideOn(d.manual_override||d['Manual Override'])?' active':''}" onclick="toggleOverride(this)" title="Lock this row from automatic drawing updates">${isOverrideOn(d.manual_override||d['Manual Override'])?'OVERRIDDEN':'Override'}</button></td>
+      <td style="display:flex;gap:4px;align-items:center;padding:5px 4px">
+        <button class="save-row-btn" onclick="saveDrawingRow(this, '${context}')">Save</button>
+        <button class="td-del" onclick="this.closest('tr').remove()">✕</button>
+      </td>
+    `;
+  } else {
+    tr.innerHTML = `
+      <td><input class="td-input" type="text" placeholder="Drawing name"></td>
+      <td>${drawingTypeSelect('Architectural')}</td>
+      <td><input class="td-input" type="text" placeholder="Issued by"></td>
+      <td><input class="td-input" type="date"></td>
+      <td><input class="td-input" type="date"></td>
+      <td>${drawingStatusSelect('Awaited')}</td>
+      <td><input class="td-input" type="text" placeholder="Notes"></td>
+      <td><button class="td-del" onclick="this.closest('tr').remove()">✕</button></td>
+    `;
+  }
+
+  tbody.appendChild(tr);
+}
+
 function toggleOverride(btn) {
   btn.classList.toggle('active');
   btn.textContent = btn.classList.contains('active') ? 'OVERRIDDEN' : 'Override';
@@ -853,6 +945,22 @@ function collectNewMaterials() {
   }).filter(r => r.material.trim());
 }
 
+function collectNewDrawings() {
+  const rows = document.querySelectorAll('#newDrawingBody tr');
+  return [...rows].map(tr => {
+    const cells = tr.querySelectorAll('input, select');
+    return {
+      drawing_name: cells[0].value,
+      drawing_type: cells[1].value,
+      issued_by: cells[2].value,
+      required_by_date: cells[3].value,
+      date_received: cells[4].value,
+      status: cells[5].value,
+      notes: cells[6].value
+    };
+  }).filter(r => r.drawing_name.trim());
+}
+
 // ─── SUBMIT NEW PROJECT ───────────────────────────────────────
 async function submitNewProject() {
   const name = document.getElementById('newProjectName').value.trim();
@@ -866,7 +974,8 @@ async function submitNewProject() {
     end_date: document.getElementById('newEndDate').value,
     project_manager: document.getElementById('newPM').value.trim(),
     activities: collectNewActivities(),
-    materials: collectNewMaterials()
+    materials: collectNewMaterials(),
+    drawings: collectNewDrawings()
   };
 
   showMsg('newProjectMsg', 'success', 'Saving...');
@@ -1031,6 +1140,57 @@ async function saveMaterialRow(btn, context) {
   }
 }
 
+async function saveDrawingRow(btn, context) {
+  const tr = btn.closest('tr');
+  const inputs = tr.querySelectorAll('input, select');
+  const overrideChip = tr.querySelector('.override-chip');
+  const project = document.getElementById('editProjectSelector').value;
+  const drawingName = inputs[0].value.trim();
+
+  if (!project) {
+    showMsg('editDrawingMsg', 'error', 'Select a project before saving.');
+    return;
+  }
+  if (!drawingName) {
+    showMsg('editDrawingMsg', 'error', 'Drawing name is required.');
+    return;
+  }
+
+  const rowData = {
+    action: 'saveProjectData',
+    project,
+    updateType: 'drawing',
+    original_drawing_name: tr.dataset.originalDrawingName || drawingName,
+    drawing_name: drawingName,
+    drawing_type: inputs[1].value,
+    issued_by: inputs[2].value,
+    required_by_date: inputs[3].value,
+    date_received: inputs[4].value,
+    status: inputs[5].value,
+    notes: inputs[6].value,
+    manual_override: overrideChip ? overrideChip.classList.contains('active') : false
+  };
+
+  btn.textContent = 'Saving...';
+  try {
+    const form = new FormData();
+    form.append('action', 'saveProjectData');
+    form.append('payload', JSON.stringify(rowData));
+    const resp = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: form, redirect: 'follow' });
+    const data = await resp.json();
+    if (data.success) {
+      tr.dataset.originalDrawingName = drawingName;
+      btn.textContent = '✓ Saved';
+      btn.classList.add('saved');
+      setTimeout(() => { btn.textContent = 'Save'; btn.classList.remove('saved'); }, 2000);
+    } else throw new Error(data.error);
+  } catch(err) {
+    btn.textContent = 'Error';
+    showMsg('editDrawingMsg', 'error', 'Save failed: ' + err.message);
+    setTimeout(() => { btn.textContent = 'Save'; }, 2000);
+  }
+}
+
 // ─── SAVE DPR EDIT ────────────────────────────────────────────
 async function saveDPREdit(btn, date) {
   const project = document.getElementById('editProjectSelector').value;
@@ -1088,6 +1248,11 @@ async function loadProjectForEdit(project) {
     matBody.innerHTML = '';
     (data.materials || []).forEach(m => addMaterialRow('edit', m));
 
+    // Render Drawings
+    const drwBody = document.getElementById('editDrawingBody');
+    drwBody.innerHTML = '';
+    (data.drawings || []).forEach(drw => addDrawingRow('edit', drw));
+
     // Render DPR Archive
     const dprList = document.getElementById('editDPRList');
     dprList.innerHTML = '';
@@ -1132,7 +1297,7 @@ window.toggleDPREditEntry = function(i) {
 
 // ─── TAB SWITCH ───────────────────────────────────────────────
 window.switchEditTab = function(tab) {
-  ['activities','materials','dpr'].forEach(t => {
+  ['activities','materials','drawings','dpr'].forEach(t => {
     document.getElementById(`editTab-${t}`).classList.toggle('active', t === tab);
     document.getElementById(`tabBtn-${t}`).classList.toggle('active', t === tab);
   });
