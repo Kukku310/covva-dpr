@@ -717,6 +717,8 @@ body {
      Only strip what breaks print: overlay chrome, box-shadow, fixed positioning. */
   @page { margin: 0.8cm 0.4cm; }
   body { margin: 0; }
+  /* force browsers to print background colours (zebra rows, header fills) */
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   body > *:not(.modal-overlay) { display: none !important; }
   .modal-actions { display: none !important; }
   .modal-overlay {
@@ -732,11 +734,8 @@ body {
   .modal-section-title { break-after: avoid; page-break-after: avoid; }
   /* no row splits mid-line */
   tr { break-inside: avoid; page-break-inside: avoid; }
-  /* left accent border per section — right side intentionally open */
-  .pdf-section-group {
-    border-left: 1.5px solid #c8c0b8;
-    padding-left: 10px;
-  }
+  /* no vertical borders — clean open look matching on-screen preview */
+  .pdf-section-group { border: none; padding: 0; }
 }
 
 .footer {
