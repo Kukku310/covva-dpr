@@ -727,7 +727,7 @@ body {
     display: block !important;
   }
   .modal-overlay.visible { display: block !important; }
-  .modal-box { box-shadow: none !important; border-radius: 0 !important; overflow: visible !important; }
+  .modal-box { box-shadow: none !important; border-radius: 0 !important; overflow: visible !important; padding: 16px !important; }
   /* heading never orphans at bottom of a page */
   .modal-section-title { break-after: avoid; page-break-after: avoid; }
   /* no row splits mid-line */
@@ -2246,7 +2246,7 @@ function openPDFModal() {
   }
   const ACT_TH = `text-align:left;padding:5px 8px;color:#5c5148;font-weight:500;font-size:10px;white-space:nowrap`;
   let ganttHtml = `<table style="width:100%;border-collapse:collapse;table-layout:fixed;font-family:'DM Mono',monospace;font-size:12px;margin-top:4px">`;
-  ganttHtml += `<colgroup><col style="width:46%"><col style="width:26%"><col style="width:8%"><col style="width:20%"></colgroup>`;
+  ganttHtml += `<colgroup><col style="width:40%"><col style="width:32%"><col style="width:8%"><col style="width:20%"></colgroup>`;
   ganttHtml += `<thead><tr style="border-bottom:1px solid #e0dbd3;background:#f0ece6"><th style="${ACT_TH}">Activity</th><th style="${ACT_TH}">Timeline</th><th style="${ACT_TH}">Days</th><th style="${ACT_TH}">Status</th></tr></thead><tbody>`;
   [...(dashData.activities || [])].sort((a, b) => {
     const da = parseSheetDate(a.planned_start);
@@ -2263,7 +2263,7 @@ function openPDFModal() {
     const days = calcDays(a.planned_start, a.current_end || a.planned_end);
     ganttHtml += `<tr style="border-bottom:1px solid #f0ece6;${rowBg}">
       <td style="padding:4px 8px;word-break:break-word">${a.activity||'—'}</td>
-      <td style="padding:4px 8px;white-space:nowrap;color:#5c5148">${dateRange}</td>
+      <td style="padding:4px 8px;color:#5c5148">${dateRange}</td>
       <td style="padding:4px 8px;color:#9a9188;white-space:nowrap">${days}</td>
       <td style="padding:4px 8px;white-space:nowrap;text-transform:capitalize;color:${statusColor};font-weight:500">${statusLabel}</td>
     </tr>`;
