@@ -713,22 +713,27 @@ body {
 .modal-btn-close:hover { border-color: #b8711f; color: #b8711f; }
 
 @media print {
-  @page { margin: 1cm 1.2cm; }
+  /* Let screen styles (padding, max-width, fonts) carry through unchanged.
+     Only strip what breaks print: overlay chrome, box-shadow, fixed positioning. */
+  @page { margin: 1.5cm; }
   body { margin: 0; }
-  .modal-actions { display: none !important; }
-  .modal-overlay { position: static; background: none; padding: 0; }
   body > *:not(.modal-overlay) { display: none !important; }
-  .modal-overlay.visible { display: block; }
-  /* fill the full printable width regardless of screen max-width */
-  .modal-box { max-width: none; width: 100%; box-shadow: none; padding: 0; }
-  /* keep section heading glued to the content that follows it */
+  .modal-actions { display: none !important; }
+  .modal-overlay {
+    position: static !important;
+    background: none !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+  .modal-overlay.visible { display: block !important; }
+  .modal-box { box-shadow: none !important; border-radius: 0 !important; overflow: visible !important; }
+  /* heading never orphans at bottom of a page */
   .modal-section-title { break-after: avoid; page-break-after: avoid; }
-  /* prevent a table row from being the lone orphan on a page */
+  /* no row splits mid-line */
   tr { break-inside: avoid; page-break-inside: avoid; }
-  /* left + right border frame on every section */
+  /* section left/right border lines (print only) */
   .pdf-section-group {
-    break-inside: avoid;
-    page-break-inside: avoid;
     border-left: 1.5px solid #c8c0b8;
     border-right: 1.5px solid #c8c0b8;
     padding-left: 10px;
@@ -2218,13 +2223,20 @@ function openPDFModal() {
   document.getElementById('pdfModalMeta').innerHTML =
     `<strong>${pName}</strong><span style="font-weight:400;font-size:11px;color:#9a9188">${todayStr}</span>`;
 
+  // Locale-independent date formatter — always 3-char months (no "Sept")
+  const PDF_M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function pdfFmtDate(val) {
+    const d = parseSheetDate(val);
+    if (!d) return '—';
+    return String(d.getDate()).padStart(2,'0') + ' ' + PDF_M[d.getMonth()] + ' ' + d.getFullYear();
+  }
+
   // Activity Schedule table (no Gantt visual, no Slippage column)
   function fmtDateRange(start, end) {
-    const s = parseSheetDate(start);
-    const e = parseSheetDate(end);
-    if (!s || !e) return '—';
-    const opts = { day: '2-digit', month: 'short', year: 'numeric' };
-    return s.toLocaleDateString('en-GB', opts) + ' – ' + e.toLocaleDateString('en-GB', opts);
+    const s = pdfFmtDate(start);
+    const e = pdfFmtDate(end);
+    if (s === '—' || e === '—') return '—';
+    return s + ' – ' + e;
   }
   function calcDays(start, end) {
     const s = parseSheetDate(start);
@@ -2286,7 +2298,7 @@ function openPDFModal() {
     pendingMats.forEach((m, i) => {
       const s   = getMatStatus(m);
       const sCol = s.cls.includes('red') ? '#a93226' : '#b8711f';
-      const tgt  = m.target_date ? fmtDate(m.target_date) : (m.required_on_site_date ? fmtDate(m.required_on_site_date) : '—');
+      const tgt  = m.target_date ? pdfFmtDate(m.target_date) : (m.required_on_site_date ? pdfFmtDate(m.required_on_site_date) : '—');
       matsHtml += pdfRow(pdfTd(m.material||'—') + pdfTd(m.area||'—') + pdfTd(tgt, ';white-space:nowrap;color:#5c5148') + pdfTd(`<span style="font-weight:500;color:${sCol}">${s.label}</span>`), i);
     });
     matsHtml += '</tbody></table>';
@@ -2313,7 +2325,7 @@ function openPDFModal() {
       const s    = getDrawingStatus(drw);
       const sCol = s.cls.includes('red') ? '#a93226' : s.cls.includes('green') ? '#1e8449' : s.cls.includes('grey') ? '#9a9188' : '#b8711f';
       const nameCell = `${drw.drawing_name||'—'}${drw.drawing_type ? `<span style="display:block;font-size:9px;color:#9a9188;font-style:italic;margin-top:1px">${drw.drawing_type}</span>` : ''}`;
-      drwHtml += pdfRow(pdfTd(nameCell) + pdfTd(drw.issued_by||'—') + pdfTd(fmtDate(drw.required_by_date), ';white-space:nowrap;color:#5c5148') + pdfTd(`<span style="font-weight:500;color:${sCol}">${s.label}</span>`), i);
+      drwHtml += pdfRow(pdfTd(nameCell) + pdfTd(drw.issued_by||'—') + pdfTd(pdfFmtDate(drw.required_by_date), ';white-space:nowrap;color:#5c5148') + pdfTd(`<span style="font-weight:500;color:${sCol}">${s.label}</span>`), i);
     });
     drwHtml += '</tbody></table>';
   } else {
@@ -2335,7 +2347,7 @@ function openPDFModal() {
     procPdfMats.forEach((m, i) => {
       const s    = getMatStatus(m);
       const sCol = s.cls.includes('red') ? '#a93226' : s.cls.includes('blue') ? '#2980b9' : s.cls.includes('green') ? '#1e8449' : '#b8711f';
-      procHtml += pdfRow(pdfTd(m.material||'—') + pdfTd(m.area||'—') + pdfTd(fmtDate(m.required_on_site_date), ';white-space:nowrap;color:#5c5148') + pdfTd(`<span style="font-weight:500;color:${sCol}">${s.label}</span>`), i);
+      procHtml += pdfRow(pdfTd(m.material||'—') + pdfTd(m.area||'—') + pdfTd(pdfFmtDate(m.required_on_site_date), ';white-space:nowrap;color:#5c5148') + pdfTd(`<span style="font-weight:500;color:${sCol}">${s.label}</span>`), i);
     });
     procHtml += '</tbody></table>';
     pdfProcCont.innerHTML = procHtml;
