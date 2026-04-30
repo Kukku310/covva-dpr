@@ -2177,43 +2177,51 @@ function openPDFModal() {
   ganttHtml += '</table>';
   document.getElementById('pdfGanttContainer').innerHTML = ganttHtml;
 
-  // Pending Client Actions — rendered as proper table (matching Drawings / Procurement style)
+  // ── Shared column structure for all three PDF tables ──────────────────────
+  // col widths: Item 40% | Area/By 16% | Date 20% | Status 24%
+  // table-layout:fixed ensures columns lock identically across all three tables
+  const PDF_COL = `<colgroup><col style="width:40%"><col style="width:16%"><col style="width:20%"><col style="width:24%"></colgroup>`;
+  const PDF_TBL = `width:100%;border-collapse:collapse;table-layout:fixed;font-family:'DM Mono',monospace;font-size:10px;margin-top:4px`;
+  const PDF_TH  = `text-align:left;padding:5px 8px;color:#5c5148;font-weight:500;font-size:9px;white-space:nowrap;overflow:hidden`;
+  const PDF_HD  = `border-bottom:1px solid #e0dbd3;background:#f0ece6`;
+  function pdfTd(content, extra='') { return `<td style="padding:4px 8px;vertical-align:top;word-break:break-word${extra}">${content}</td>`; }
+  function pdfRow(cells, i) { const bg = i%2===0 ? 'background:rgba(0,0,0,0.018)' : ''; return `<tr style="border-bottom:1px solid #f5f2ee;${bg}">${cells}</tr>`; }
+
+  // ── Pending Client Actions ─────────────────────────────────────────────────
   const pendingMats = (dashData.materials || []).filter(m => !['received','good'].includes((m.status||m.condition||'').toLowerCase()));
   let matsHtml;
   if (pendingMats.length) {
-    matsHtml = '<table style="width:100%;border-collapse:collapse;font-family:\'DM Mono\',monospace;font-size:10px;margin-top:4px">';
-    matsHtml += '<tr style="border-bottom:1px solid #e0dbd3;background:#f0ece6"><th style="text-align:left;padding:5px 8px;color:#5c5148">Item</th><th style="text-align:left;padding:5px 8px;color:#5c5148">Area</th><th style="text-align:left;padding:5px 8px;color:#5c5148;white-space:nowrap">Target Date</th><th style="text-align:left;padding:5px 8px;color:#5c5148">Status</th></tr>';
+    matsHtml = `<table style="${PDF_TBL}">${PDF_COL}<thead><tr style="${PDF_HD}"><th style="${PDF_TH}">Item</th><th style="${PDF_TH}">Area</th><th style="${PDF_TH}">Target Date</th><th style="${PDF_TH}">Status</th></tr></thead><tbody>`;
     pendingMats.forEach((m, i) => {
-      const s = getMatStatus(m);
-      const rowBg = i % 2 === 0 ? 'background:rgba(0,0,0,0.018)' : '';
+      const s   = getMatStatus(m);
       const sCol = s.cls.includes('red') ? '#a93226' : '#b8711f';
-      const tgt = m.target_date ? fmtDate(m.target_date) : (m.required_on_site_date ? fmtDate(m.required_on_site_date) : '—');
-      matsHtml += `<tr style="border-bottom:1px solid #f0ece6;${rowBg}"><td style="padding:4px 8px">${m.material||'—'}</td><td style="padding:4px 8px">${m.area||'—'}</td><td style="padding:4px 8px;white-space:nowrap">${tgt}</td><td style="padding:4px 8px;color:${sCol};font-weight:500">${s.label}</td></tr>`;
+      const tgt  = m.target_date ? fmtDate(m.target_date) : (m.required_on_site_date ? fmtDate(m.required_on_site_date) : '—');
+      matsHtml += pdfRow(pdfTd(m.material||'—') + pdfTd(m.area||'—') + pdfTd(tgt, ';white-space:nowrap;color:#5c5148') + pdfTd(`<span style="font-weight:500;color:${sCol}">${s.label}</span>`), i);
     });
-    matsHtml += '</table>';
+    matsHtml += '</tbody></table>';
   } else {
     matsHtml = '<div style="font-family:DM Mono,monospace;font-size:11px;color:#9a9188;padding:8px 0">No pending client actions.</div>';
   }
   document.getElementById('pdfMaterialsContainer').innerHTML = matsHtml;
 
-  // Drawings (pending only)
+  // ── Drawings Awaited ───────────────────────────────────────────────────────
   const pendingDrawings = (dashData.drawings || []).filter(drw => (drw.status || '').toLowerCase().trim() !== 'received');
-  let drwHtml = '<div class="modal-section-title" style="margin-top:16px">Drawings Awaited from Architect / Consultant</div>';
+  let drwHtml = '<div class="modal-section-title" style="margin-top:20px">Drawings Awaited — Architect / Consultant</div>';
   if (pendingDrawings.length) {
-    drwHtml += '<table style="width:100%;border-collapse:collapse;font-family:\'DM Mono\',monospace;font-size:10px;margin-top:4px">';
-    drwHtml += '<tr style="border-bottom:1px solid #e0dbd3;background:#f0ece6"><th style="text-align:left;padding:4px 8px;color:#5c5148">Drawing Name</th><th style="text-align:left;padding:4px 8px;color:#5c5148">Type</th><th style="text-align:left;padding:4px 8px;color:#5c5148">Issued By</th><th style="text-align:left;padding:4px 8px;color:#5c5148">Required By</th><th style="text-align:left;padding:4px 8px;color:#5c5148">Status</th></tr>';
-    pendingDrawings.forEach(drw => {
-      const s = getDrawingStatus(drw);
+    drwHtml += `<table style="${PDF_TBL}">${PDF_COL}<thead><tr style="${PDF_HD}"><th style="${PDF_TH}">Drawing Name</th><th style="${PDF_TH}">Issued By</th><th style="${PDF_TH}">Required By</th><th style="${PDF_TH}">Status</th></tr></thead><tbody>`;
+    pendingDrawings.forEach((drw, i) => {
+      const s    = getDrawingStatus(drw);
       const sCol = s.cls.includes('red') ? '#a93226' : s.cls.includes('green') ? '#1e8449' : s.cls.includes('grey') ? '#9a9188' : '#b8711f';
-      drwHtml += `<tr style="border-bottom:1px solid #f0ece6"><td style="padding:3px 8px">${drw.drawing_name||'—'}</td><td style="padding:3px 8px">${drw.drawing_type||'—'}</td><td style="padding:3px 8px">${drw.issued_by||'—'}</td><td style="padding:3px 8px">${fmtDate(drw.required_by_date)}</td><td style="padding:3px 8px;color:${sCol}">${s.label}</td></tr>`;
+      const nameCell = `${drw.drawing_name||'—'}${drw.drawing_type ? `<span style="display:block;font-size:9px;color:#9a9188;font-style:italic;margin-top:1px">${drw.drawing_type}</span>` : ''}`;
+      drwHtml += pdfRow(pdfTd(nameCell) + pdfTd(drw.issued_by||'—') + pdfTd(fmtDate(drw.required_by_date), ';white-space:nowrap;color:#5c5148') + pdfTd(`<span style="font-weight:500;color:${sCol}">${s.label}</span>`), i);
     });
-    drwHtml += '</table>';
+    drwHtml += '</tbody></table>';
   } else {
     drwHtml += '<div style="font-family:DM Mono,monospace;font-size:11px;color:#9a9188">No pending drawings.</div>';
   }
   document.getElementById('pdfMaterialsContainer').innerHTML += drwHtml;
 
-  // Procurement Schedule (PDF — client view rules: no RECEIVED)
+  // ── Procurement Schedule ───────────────────────────────────────────────────
   const procPdfMats = (dashData.materials || [])
     .filter(m => m.required_on_site_date && m.required_on_site_date.trim())
     .filter(m => !getMatStatus(m).label.includes('RECEIVED'))
@@ -2223,15 +2231,13 @@ function openPDFModal() {
   const pdfProcCont  = document.getElementById('pdfProcurementContainer');
   if (procPdfMats.length) {
     pdfProcTitle.style.display = 'block';
-    let procHtml = '<table style="width:100%;border-collapse:collapse;font-family:\'DM Mono\',monospace;font-size:10px;margin-top:4px">';
-    procHtml += '<tr style="border-bottom:1px solid #e0dbd3;background:#f0ece6"><th style="text-align:left;padding:4px 8px;color:#5c5148">Material</th><th style="text-align:left;padding:4px 8px;color:#5c5148">Area</th><th style="text-align:left;padding:4px 8px;color:#5c5148">Required On Site</th><th style="text-align:left;padding:4px 8px;color:#5c5148">Status</th></tr>';
-    procPdfMats.forEach(m => {
-      const s = getMatStatus(m);
-      const dStr = fmtDate(m.required_on_site_date);
+    let procHtml = `<table style="${PDF_TBL}">${PDF_COL}<thead><tr style="${PDF_HD}"><th style="${PDF_TH}">Material</th><th style="${PDF_TH}">Area</th><th style="${PDF_TH}">Required On Site</th><th style="${PDF_TH}">Status</th></tr></thead><tbody>`;
+    procPdfMats.forEach((m, i) => {
+      const s    = getMatStatus(m);
       const sCol = s.cls.includes('red') ? '#a93226' : s.cls.includes('blue') ? '#2980b9' : s.cls.includes('green') ? '#1e8449' : '#b8711f';
-      procHtml += `<tr style="border-bottom:1px solid #f0ece6"><td style="padding:3px 8px">${m.material||'—'}</td><td style="padding:3px 8px">${m.area||'—'}</td><td style="padding:3px 8px">${dStr}</td><td style="padding:3px 8px;color:${sCol}">${s.label}</td></tr>`;
+      procHtml += pdfRow(pdfTd(m.material||'—') + pdfTd(m.area||'—') + pdfTd(fmtDate(m.required_on_site_date), ';white-space:nowrap;color:#5c5148') + pdfTd(`<span style="font-weight:500;color:${sCol}">${s.label}</span>`), i);
     });
-    procHtml += '</table>';
+    procHtml += '</tbody></table>';
     pdfProcCont.innerHTML = procHtml;
   } else {
     pdfProcTitle.style.display = 'none';
