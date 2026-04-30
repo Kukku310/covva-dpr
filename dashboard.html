@@ -1707,9 +1707,18 @@ function buildMaterialsSection(materials) {
     wrap.appendChild(intro);
   }
 
-  const filtered = isClientView
+  const rawFiltered = isClientView
     ? materials.filter(m => !['received'].includes((m.status || m.condition || '').toLowerCase()))
     : materials;
+
+  const filtered = [...rawFiltered].sort((a, b) => {
+    const da = parseSheetDate(a.target_date);
+    const db = parseSheetDate(b.target_date);
+    if (!da && !db) return 0;
+    if (!da) return 1;
+    if (!db) return -1;
+    return da - db;
+  });
 
   if (!filtered.length) {
     wrap.innerHTML += '<div class="empty-state">No material entries yet.</div>';
@@ -1767,9 +1776,18 @@ function buildDrawingsSection(drawings) {
   const wrap = document.createElement('div');
   wrap.className = 'material-section';
 
-  const filtered = isClientView
+  const rawFiltered = isClientView
     ? drawings.filter(d => (d.status || '').toLowerCase().trim() !== 'received')
     : drawings;
+
+  const filtered = [...rawFiltered].sort((a, b) => {
+    const da = parseSheetDate(a.required_by_date);
+    const db = parseSheetDate(b.required_by_date);
+    if (!da && !db) return 0;
+    if (!da) return 1;
+    if (!db) return -1;
+    return da - db;
+  });
 
   if (!filtered.length) {
     wrap.innerHTML = '<div class="empty-state">No drawing requirements set up yet.</div>';
