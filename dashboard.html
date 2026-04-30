@@ -715,7 +715,7 @@ body {
 @media print {
   /* Let screen styles (padding, max-width, fonts) carry through unchanged.
      Only strip what breaks print: overlay chrome, box-shadow, fixed positioning. */
-  @page { margin: 1.5cm; }
+  @page { margin: 0.8cm 1.5cm; }
   body { margin: 0; }
   body > *:not(.modal-overlay) { display: none !important; }
   .modal-actions { display: none !important; }
@@ -727,7 +727,7 @@ body {
     display: block !important;
   }
   .modal-overlay.visible { display: block !important; }
-  .modal-box { box-shadow: none !important; border-radius: 0 !important; overflow: visible !important; padding: 16px !important; }
+  .modal-box { box-shadow: none !important; border-radius: 0 !important; overflow: visible !important; padding: 8px 16px 16px !important; }
   /* heading never orphans at bottom of a page */
   .modal-section-title { break-after: avoid; page-break-after: avoid; }
   /* no row splits mid-line */
