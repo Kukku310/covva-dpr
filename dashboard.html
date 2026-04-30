@@ -2197,7 +2197,14 @@ function openPDFModal() {
   }
   let ganttHtml = '<table style="width:100%;border-collapse:collapse;font-family:\'DM Mono\',monospace;font-size:10px;margin-top:4px">';
   ganttHtml += '<tr style="border-bottom:1px solid #e0dbd3;background:#f0ece6"><th style="text-align:left;padding:5px 8px;color:#5c5148">Activity</th><th style="text-align:left;padding:5px 8px;color:#5c5148;white-space:nowrap">Timeline</th><th style="text-align:left;padding:5px 8px;color:#5c5148">Status</th></tr>';
-  (dashData.activities || []).forEach((a, i) => {
+  [...(dashData.activities || [])].sort((a, b) => {
+    const da = parseSheetDate(a.planned_start);
+    const db = parseSheetDate(b.planned_start);
+    if (!da && !db) return 0;
+    if (!da) return 1;
+    if (!db) return -1;
+    return da - db;
+  }).forEach((a, i) => {
     const rowBg = i % 2 === 0 ? 'background:rgba(0,0,0,0.018)' : '';
     const statusLabel = (a.status || '—').replace(/_/g,' ');
     const statusColor = { completed:'#1e8449', on_track:'#1a6fa0', in_progress:'#1a6fa0', delayed:'#a93226', not_started:'#9a9188' }[(a.status||'').toLowerCase()] || '#9a9188';
