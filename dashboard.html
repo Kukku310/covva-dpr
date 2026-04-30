@@ -862,6 +862,7 @@ body {
     <select class="header-select" id="projectSelector" onchange="switchProject(this.value)">
       <option value="">Select project...</option>
     </select>
+    <button class="hdr-btn" id="refreshBtn" onclick="refreshDashboard()">↺ Refresh</button>
     <button class="hdr-btn" id="darkBtn" onclick="toggleTheme()">Dark Mode</button>
     <button class="hdr-btn" id="clientBtn" onclick="toggleClientView()">Client View</button>
   </div>
@@ -959,6 +960,15 @@ function toggleClientView() {
 }
 
 // ─── PROJECT SWITCH ───────────────────────────────────────────
+async function refreshDashboard() {
+  const btn = document.getElementById('refreshBtn');
+  btn.textContent = '↺ Refreshing...';
+  btn.disabled = true;
+  await loadDashboard();
+  btn.textContent = '↺ Refresh';
+  btn.disabled = false;
+}
+
 function switchProject(name) {
   if (!name) return;
   currentProject = name;
@@ -1590,7 +1600,11 @@ function buildStrengthToday(dprs) {
   if (!dprs.length) return '<div class="empty-state">No DPR data.</div>';
 
   // Get most recent DPR
-  const sorted = [...dprs].sort((a,b) => new Date(b.date) - new Date(a.date));
+  const sorted = [...dprs].sort((a,b) => {
+    const da = parseSheetDate(a.date);
+    const db = parseSheetDate(b.date);
+    return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
+  });
   const latest = sorted[0];
   const reportText = latest.report || latest.formatted_report || '';
   const tradeData  = parseTradesFromDPR(reportText);
