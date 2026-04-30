@@ -666,9 +666,13 @@ body {
 .modal-project-info {
   text-align: right;
   font-family: 'DM Mono', monospace;
-  font-size: 11px;
+  font-size: 12px;
+  font-weight: 500;
   color: #5c5148;
-  line-height: 1.6;
+  line-height: 1.4;
+  display: flex;
+  align-items: center;
+  gap: 0;
 }
 .modal-section-title {
   font-family: 'Bebas Neue', sans-serif;
@@ -878,12 +882,9 @@ body {
       </div>
       <div class="modal-project-info" id="pdfModalMeta"></div>
     </div>
-    <div class="modal-section-title">Project Timeline</div>
-    <div style="overflow-x:auto;margin-bottom:4px">
-      <div id="pdfGanttVisual"></div>
-    </div>
+    <div class="modal-section-title">Activity Schedule</div>
     <div id="pdfGanttContainer"></div>
-    <div class="modal-section-title">Pending Client Actions</div>
+    <div class="modal-section-title" style="margin-top:20px">Pending Client Actions</div>
     <div id="pdfMaterialsContainer"></div>
     <div class="modal-section-title" id="pdfProcurementTitle" style="display:none;margin-top:16px">Procurement Schedule</div>
     <div id="pdfProcurementContainer"></div>
@@ -2154,29 +2155,45 @@ function openPDFModal() {
   const pName = dashData.project || currentProject;
 
   document.getElementById('pdfModalMeta').innerHTML =
-    `<strong>${pName}</strong><br>${todayStr}<br>Snapshot: ${todayStr}`;
+    `<strong>${pName}</strong> &nbsp;·&nbsp; ${todayStr}`;
 
-  // Build hybrid Gantt for PDF (HTML labels — no fonts.ready needed)
-  buildPDFGanttFromData(dashData.activities || [], today);
-
-  // Gantt detail table below the visual
+  // Activity Schedule table (no Gantt visual, no Slippage column)
+  function fmtDateRange(start, end) {
+    const s = parseSheetDate(start);
+    const e = parseSheetDate(end);
+    if (!s || !e) return '—';
+    const opts = { day: '2-digit', month: 'short', year: 'numeric' };
+    return s.toLocaleDateString('en-GB', opts) + ' – ' + e.toLocaleDateString('en-GB', opts);
+  }
   let ganttHtml = '<table style="width:100%;border-collapse:collapse;font-family:\'DM Mono\',monospace;font-size:10px;margin-top:4px">';
-  ganttHtml += '<tr style="border-bottom:1px solid #e0dbd3;background:#f0ece6"><th style="text-align:left;padding:4px 8px;color:#5c5148">Activity</th><th style="text-align:left;padding:4px 8px;color:#5c5148">Start</th><th style="text-align:left;padding:4px 8px;color:#5c5148">End</th><th style="text-align:left;padding:4px 8px;color:#5c5148">Status</th><th style="text-align:left;padding:4px 8px;color:#5c5148">Slippage</th></tr>';
-  (dashData.activities || []).forEach(a => {
-    const slip = Number(a.total_slippage_days) || 0;
-    ganttHtml += `<tr style="border-bottom:1px solid #f0ece6"><td style="padding:3px 8px">${a.activity||'—'}</td><td style="padding:3px 8px">${fmtDateShort(a.planned_start)||'—'}</td><td style="padding:3px 8px">${fmtDateShort(a.current_end||a.planned_end)||'—'}</td><td style="padding:3px 8px;text-transform:capitalize">${(a.status||'—').replace(/_/g,' ')}</td><td style="padding:3px 8px">${slip ? '+'+slip+'d' : '—'}</td></tr>`;
+  ganttHtml += '<tr style="border-bottom:1px solid #e0dbd3;background:#f0ece6"><th style="text-align:left;padding:5px 8px;color:#5c5148">Activity</th><th style="text-align:left;padding:5px 8px;color:#5c5148;white-space:nowrap">Timeline</th><th style="text-align:left;padding:5px 8px;color:#5c5148">Status</th></tr>';
+  (dashData.activities || []).forEach((a, i) => {
+    const rowBg = i % 2 === 0 ? 'background:rgba(0,0,0,0.018)' : '';
+    const statusLabel = (a.status || '—').replace(/_/g,' ');
+    const statusColor = { completed:'#1e8449', on_track:'#1a6fa0', in_progress:'#1a6fa0', delayed:'#a93226', not_started:'#9a9188' }[(a.status||'').toLowerCase()] || '#9a9188';
+    const dateRange = fmtDateRange(a.planned_start, a.current_end || a.planned_end);
+    ganttHtml += `<tr style="border-bottom:1px solid #f0ece6;${rowBg}"><td style="padding:4px 8px">${a.activity||'—'}</td><td style="padding:4px 8px;white-space:nowrap;color:#5c5148">${dateRange}</td><td style="padding:4px 8px;text-transform:capitalize;color:${statusColor};font-weight:500">${statusLabel}</td></tr>`;
   });
   ganttHtml += '</table>';
   document.getElementById('pdfGanttContainer').innerHTML = ganttHtml;
 
-  // Materials (pending only)
+  // Pending Client Actions — rendered as proper table (matching Drawings / Procurement style)
   const pendingMats = (dashData.materials || []).filter(m => !['received','good'].includes((m.status||m.condition||'').toLowerCase()));
-  let matsHtml = pendingMats.length
-    ? pendingMats.map(m => {
-        const s = getMatStatus(m);
-        return `<div style="padding:6px 0;border-bottom:1px solid #f0ece6;font-family:DM Mono,monospace;font-size:11px"><strong>${m.material||'—'}</strong> — ${m.area||''} <span style="color:${s.cls.includes('red')?'#a93226':'#b8711f'}">[${s.label}]</span>${m.target_date ? `  Target: ${fmtDate(m.target_date)}` : ''}</div>`;
-      }).join('')
-    : '<div style="font-family:DM Mono,monospace;font-size:11px;color:#9a9188">No pending client materials.</div>';
+  let matsHtml;
+  if (pendingMats.length) {
+    matsHtml = '<table style="width:100%;border-collapse:collapse;font-family:\'DM Mono\',monospace;font-size:10px;margin-top:4px">';
+    matsHtml += '<tr style="border-bottom:1px solid #e0dbd3;background:#f0ece6"><th style="text-align:left;padding:5px 8px;color:#5c5148">Item</th><th style="text-align:left;padding:5px 8px;color:#5c5148">Area</th><th style="text-align:left;padding:5px 8px;color:#5c5148;white-space:nowrap">Target Date</th><th style="text-align:left;padding:5px 8px;color:#5c5148">Status</th></tr>';
+    pendingMats.forEach((m, i) => {
+      const s = getMatStatus(m);
+      const rowBg = i % 2 === 0 ? 'background:rgba(0,0,0,0.018)' : '';
+      const sCol = s.cls.includes('red') ? '#a93226' : '#b8711f';
+      const tgt = m.target_date ? fmtDate(m.target_date) : (m.required_on_site_date ? fmtDate(m.required_on_site_date) : '—');
+      matsHtml += `<tr style="border-bottom:1px solid #f0ece6;${rowBg}"><td style="padding:4px 8px">${m.material||'—'}</td><td style="padding:4px 8px">${m.area||'—'}</td><td style="padding:4px 8px;white-space:nowrap">${tgt}</td><td style="padding:4px 8px;color:${sCol};font-weight:500">${s.label}</td></tr>`;
+    });
+    matsHtml += '</table>';
+  } else {
+    matsHtml = '<div style="font-family:DM Mono,monospace;font-size:11px;color:#9a9188;padding:8px 0">No pending client actions.</div>';
+  }
   document.getElementById('pdfMaterialsContainer').innerHTML = matsHtml;
 
   // Drawings (pending only)
