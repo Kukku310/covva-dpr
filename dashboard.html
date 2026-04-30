@@ -1046,7 +1046,15 @@ function renderDashboard() {
 
   // ── Section 1: Timeline ──
   main.appendChild(buildTimelineSectionHeader());
-  main.appendChild(buildGantt(d.activities || [], d.dprs || [], today, startDate, endDate));
+  const sortedActivities = [...(d.activities || [])].sort((a, b) => {
+    const da = parseSheetDate(a.planned_start);
+    const db = parseSheetDate(b.planned_start);
+    if (!da && !db) return 0;
+    if (!da) return 1;
+    if (!db) return -1;
+    return da - db;
+  });
+  main.appendChild(buildGantt(sortedActivities, d.dprs || [], today, startDate, endDate));
 
   // ── Section 2: Site Strength (internal) ──
   if (!isClientView) {
