@@ -252,6 +252,25 @@ table.edit-table {
 .save-row-btn:hover { border-color: var(--amber); color: var(--amber); }
 .save-row-btn.saved { color: var(--green); border-color: var(--green); }
 
+/* ── DRAWING TYPE COMBO ── */
+.drw-type-combo { display: flex; align-items: center; gap: 4px; }
+.drw-type-combo .td-input { flex: 1; min-width: 0; }
+.drw-type-save-btn {
+  background: none;
+  border: 1px solid rgba(184,113,31,0.3);
+  color: var(--amber);
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+.drw-type-save-btn:hover { background: var(--amber-glow); border-color: var(--amber); }
+.drw-type-save-btn.saved { color: var(--green); border-color: var(--green); background: rgba(30,132,73,0.08); }
+
 /* ── MANUAL OVERRIDE CHIP ── */
 .override-chip {
   background: none;
@@ -769,8 +788,39 @@ function toggleTheme() { applyTheme(!document.body.classList.contains('dark')); 
 // ─── ACTIVITY STATUS OPTIONS ──────────────────────────────────
 const ACT_STATUS_OPTIONS = ['Not Started','In Progress','Completed','Delayed'];
 const MAT_STATUS_OPTIONS = ['Not Yet Informed','Client Actioning','Ordered','Partial Delivery','Received'];
-const DRW_TYPE_OPTIONS = ['Architectural','Structural','MEP','Electrical','Plumbing','Interior'];
+const DRW_TYPE_DEFAULTS = ['Architectural','Structural','MEP','Electrical','Plumbing','HVAC','Interior'];
+const DRW_TYPES_KEY = 'covva-drawing-types';
 const DRW_STATUS_OPTIONS = ['Awaited','Received','Revision Pending','Superseded'];
+
+function getDrawingTypes() {
+  try {
+    const custom = JSON.parse(localStorage.getItem(DRW_TYPES_KEY) || '[]');
+    const all = [...DRW_TYPE_DEFAULTS];
+    custom.forEach(t => { if (!all.includes(t)) all.push(t); });
+    return all;
+  } catch(e) { return [...DRW_TYPE_DEFAULTS]; }
+}
+
+function refreshDrawingTypesDatalist() {
+  const dl = document.getElementById('drwTypesDatalist');
+  if (dl) dl.innerHTML = getDrawingTypes().map(t => `<option value="${t}">`).join('');
+}
+
+function addDrawingTypeFromInput(btn) {
+  const input = btn.previousElementSibling;
+  const val = (input ? input.value : '').trim();
+  if (!val) return;
+  try {
+    const custom = JSON.parse(localStorage.getItem(DRW_TYPES_KEY) || '[]');
+    if (!DRW_TYPE_DEFAULTS.includes(val) && !custom.includes(val)) {
+      custom.push(val);
+      localStorage.setItem(DRW_TYPES_KEY, JSON.stringify(custom));
+      refreshDrawingTypesDatalist();
+    }
+  } catch(e) {}
+  btn.classList.add('saved');
+  setTimeout(() => btn.classList.remove('saved'), 1400);
+}
 
 // ─── ADD ACTIVITY ROW ─────────────────────────────────────────
 function normalizeStatusKey(s) { return (s||'').toLowerCase().replace(/[\s_]+/g,''); }
@@ -782,7 +832,8 @@ function materialStatusSelect(val) {
   return `<select class="td-select">${MAT_STATUS_OPTIONS.map(o => `<option${o===val?' selected':''}>${o}</option>`).join('')}</select>`;
 }
 function drawingTypeSelect(val) {
-  return `<select class="td-select">${DRW_TYPE_OPTIONS.map(o => `<option${o===val?' selected':''}>${o}</option>`).join('')}</select>`;
+  const v = esc(val || 'Architectural');
+  return `<div class="drw-type-combo"><input type="text" class="td-input drw-type-input" list="drwTypesDatalist" value="${v}" placeholder="Type or choose…"><button class="drw-type-save-btn" onclick="addDrawingTypeFromInput(this)" title="Save as custom type">✓</button></div>`;
 }
 function drawingStatusSelect(val) {
   return `<select class="td-select">${DRW_STATUS_OPTIONS.map(o => `<option${o===val?' selected':''}>${o}</option>`).join('')}</select>`;
@@ -1479,5 +1530,7 @@ async function confirmRollback() {
   }
 })();
 </script>
+<datalist id="drwTypesDatalist"></datalist>
+<script>refreshDrawingTypesDatalist();</script>
 </body>
 </html>
