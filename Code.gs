@@ -232,6 +232,12 @@ function doPost(e) {
         if (!jsonMatch) throw new Error('No JSON object found in structured data — Gemini response was malformed');
         const jsonData = JSON.parse(jsonMatch[0]);
         logToTimeline(logProject, logDateFmt, jsonData.updates || [], new Date(logDate));
+      } else if (logMode === 'material' && structuredData) {
+        const jsonMatch = structuredData.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error('No JSON object found in structured data — Gemini response was malformed');
+        const jsonData = JSON.parse(jsonMatch[0]);
+        logToMaterials(logProject, logDateFmt, jsonData);
+        try { matchAndUpdateMRDs(logProject, jsonData); } catch(mrdErr) { Logger.log('MRD match swallowed: ' + mrdErr.message); }
       }
       return jsonResponse({ success: true });
     }
@@ -274,12 +280,15 @@ function doPost(e) {
     } else if (mode === 'material') {
       const parsed = parseStructuredResponse(rawResponse);
       whatsappText = parsed.whatsappText;
+      structuredData = parsed.jsonText;
       if (parsed.jsonText) {
         try {
-          const jsonData = JSON.parse(parsed.jsonText);
-          logToMaterials(project, dateFormatted, jsonData);
-          // Intelligent MRD match — best-effort, never blocks voice log save
-          try { matchAndUpdateMRDs(project, jsonData); } catch(mrdErr) { Logger.log('MRD match swallowed: ' + mrdErr.message); }
+          if (!noLog) {
+            const jsonData = JSON.parse(parsed.jsonText);
+            logToMaterials(project, dateFormatted, jsonData);
+            // Intelligent MRD match — best-effort, never blocks voice log save
+            try { matchAndUpdateMRDs(project, jsonData); } catch(mrdErr) { Logger.log('MRD match swallowed: ' + mrdErr.message); }
+          }
         } catch(jsonErr) {
           Logger.log('Material JSON parse error: ' + jsonErr.message);
         }

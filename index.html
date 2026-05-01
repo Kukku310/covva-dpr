@@ -475,7 +475,9 @@
   .dpr-box:focus {
     border-color: var(--amber-dim);
     border-left-color: var(--amber);
-    background: #191919;
+    background: var(--surface);
+    color: var(--text);
+    -webkit-text-fill-color: var(--text);
   }
 
   .copy-btn {
@@ -727,7 +729,7 @@
 3. Condition theek hai ya koi problem hai<br>
 4. Kuch nahi aaya ya aadha aaya toh reason aur baaki kab aayega`,
       dprLabel: 'Material Update — Ready to Post',
-      sheetNote: 'Materials sheet updated automatically.'
+      sheetNote: 'Materials sheet will update when you tap Copy & Post to Group.'
     }
   };
 
@@ -1058,6 +1060,17 @@
         return;
       }
 
+      // ── Material: guard against missing structured data before logging ──
+      if (_lastMode === 'material' && !_lastStructuredData) {
+        const note = document.getElementById('sheetNote');
+        if (note) {
+          note.textContent = '⚠️ Materials not logged — AI response had no structured data. Tap Start New Report and re-generate.';
+          note.style.color = '#c0392b';
+          note.classList.add('visible');
+        }
+        return;
+      }
+
       // ── Log the current (possibly edited) text to Sheets ──
       logEditedDPR(text, _lastMode, _lastDate || getReportDate(), _lastStructuredData);
     };
@@ -1113,6 +1126,30 @@
         .catch(() => {
           if (note) {
             note.textContent = '⚠️ Timeline update failed — network error. Re-generate and try again.';
+            note.style.color = '#c0392b';
+            note.classList.add('visible');
+          }
+        });
+    } else if (mode === 'material') {
+      const note = document.getElementById('sheetNote');
+      if (note) { note.textContent = 'Logging material delivery…'; note.style.color = ''; note.classList.add('visible'); }
+      req
+        .then(r => r.json())
+        .then(result => {
+          if (note) {
+            if (result && result.success) {
+              note.textContent = '✓ Material logged in Sheet';
+              note.style.color = '#1e8449';
+            } else {
+              note.textContent = '⚠️ Material log failed — ' + ((result && result.error) || 'unknown error') + '. Re-generate and try again.';
+              note.style.color = '#c0392b';
+            }
+            note.classList.add('visible');
+          }
+        })
+        .catch(() => {
+          if (note) {
+            note.textContent = '⚠️ Material log failed — network error. Re-generate and try again.';
             note.style.color = '#c0392b';
             note.classList.add('visible');
           }
