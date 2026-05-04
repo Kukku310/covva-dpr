@@ -1592,7 +1592,8 @@ function getTimelineDetailEntries(act) {
   const projectNotes = TIMELINE_DETAIL_NOTES[projectKey] || {};
   (projectNotes[activityKey] || []).forEach(add);
 
-  return entries;
+  // Show most recent entries first
+  return entries.reverse();
 }
 
 function normalizeTimelineDetailKey(value) {
@@ -2012,22 +2013,59 @@ function buildFlags(activities, materials, drawings, today) {
   flags.forEach(f => {
     const row = document.createElement('div');
     row.className = 'flag-row';
-    let actionsHtml = '';
-    if (f.type === 'early') {
-      actionsHtml = `
-        <div class="flag-actions">
-          <button class="flag-btn">✓ Confirm Close</button>
-          <button class="flag-btn">Keep Open</button>
-        </div>`;
-    }
     row.innerHTML = `
       <div class="flag-icon">${f.icon}</div>
       <div class="flag-content">
         <div class="flag-title">${f.title}</div>
         <div class="flag-detail">${f.detail}</div>
       </div>
-      ${actionsHtml}
+      ${f.type === 'early' ? '<div class="flag-actions"><button class="flag-btn flag-btn-confirm">✓ Confirm Close</button><button class="flag-btn flag-btn-dismiss">Keep Open</button></div>' : ''}
     `;
+
+    if (f.type === 'early') {
+      // Confirm Close — mark activity as closed in Sheets then remove row
+      row.querySelector('.flag-btn-confirm').addEventListener('click', () => {
+        const btn = row.querySelector('.flag-btn-confirm');
+        btn.textContent = 'Saving…';
+        btn.disabled = true;
+        const payload = {
+          action: 'saveProjectData',
+          project: (dashData && dashData.project) || currentProject,
+          updateType: 'activity',
+          activity: f.actName,
+          status: 'completed',
+          manual_override: true
+        };
+        fetch(GAS_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+        .then(r => r.json())
+        .then(res => {
+          if (res.success) {
+            row.style.transition = 'opacity 0.3s';
+            row.style.opacity = '0';
+            setTimeout(() => row.remove(), 300);
+          } else {
+            btn.textContent = 'Error — retry';
+            btn.disabled = false;
+          }
+        })
+        .catch(() => {
+          btn.textContent = 'Error — retry';
+          btn.disabled = false;
+        });
+      });
+
+      // Keep Open — just dismiss the flag row from view
+      row.querySelector('.flag-btn-dismiss').addEventListener('click', () => {
+        row.style.transition = 'opacity 0.3s';
+        row.style.opacity = '0';
+        setTimeout(() => row.remove(), 300);
+      });
+    }
+
     wrap.appendChild(row);
   });
 
