@@ -933,6 +933,14 @@ let currentProject = params.get('project') || '';
 let isClientView   = false;
 let dashData       = null;
 const ganttOverlayState = { mrd: true, drw: true };
+const TIMELINE_DETAIL_NOTES = {
+  'modi basement': {
+    'paint and polish': ['① 04 May 2026 — Paint Polish in progress'],
+    'hvac work': ['① 04 May 2026 — HVAC Work in progress'],
+    'bathroom sanitary work': ['① 04 May 2026 — Bathroom Sanitary Work completed in 15 days'],
+    'gym area mirror wall': ['① 04 May 2026 — Gym Area Mirror Wall in progress']
+  }
+};
 
 function toggleGanttOverlay(type) {
   ganttOverlayState[type] = !ganttOverlayState[type];
@@ -1530,6 +1538,7 @@ function openGanttDetail(act, dprs) {
 
   const actName = act.activity || act.name || '';
   const slipDays = Number(act.total_slippage_days) || 0;
+  const changeEntries = getTimelineDetailEntries(act);
 
   let html = `<div class="detail-title">${actName}</div>`;
   html += `<div class="detail-grid">`;
@@ -1540,17 +1549,15 @@ function openGanttDetail(act, dprs) {
   html += detailCell('Total Slippage', slipDays ? `${slipDays} days` : '0 days');
   html += `</div>`;
 
-  if (!isClientView) {
-    // Change log
-    if (act.delay_log) {
-      html += `<div class="change-log-title">Change Log</div>`;
-      const entries = act.delay_log.split('\n').filter(Boolean);
-      entries.forEach(entry => {
-        const cls = entry.includes('WORK INCREASE') ? 'work-increase' : entry.includes('START DELAYED') ? 'start-delayed' : 'delay';
-        html += `<div class="change-entry ${cls}">${entry}</div>`;
-      });
-    }
+  if (changeEntries.length) {
+    html += `<div class="change-log-title">Change Log</div>`;
+    changeEntries.forEach(entry => {
+      const cls = entry.includes('WORK INCREASE') ? 'work-increase' : entry.includes('START DELAYED') ? 'start-delayed' : 'delay';
+      html += `<div class="change-entry ${cls}">${entry}</div>`;
+    });
+  }
 
+  if (!isClientView) {
     // DPR mentions
     const mentions = (dprs || []).filter(dpr => {
       const text = (dpr.report || dpr.formatted_report || '').toLowerCase();
@@ -1566,6 +1573,36 @@ function openGanttDetail(act, dprs) {
 
   panel.innerHTML = html;
   panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function getTimelineDetailEntries(act) {
+  const entries = [];
+  const seen = {};
+  function add(entry) {
+    const clean = String(entry || '').trim();
+    if (!clean || seen[clean]) return;
+    seen[clean] = true;
+    entries.push(clean);
+  }
+
+  String(act.delay_log || '').split('\n').forEach(add);
+
+  const projectKey = normalizeTimelineDetailKey((dashData && dashData.project) || currentProject);
+  const activityKey = normalizeTimelineDetailKey(act.activity || act.name || '');
+  const projectNotes = TIMELINE_DETAIL_NOTES[projectKey] || {};
+  (projectNotes[activityKey] || []).forEach(add);
+
+  return entries;
+}
+
+function normalizeTimelineDetailKey(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/\blights\b/g, 'light')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
 }
 
 function detailCell(label, value) {

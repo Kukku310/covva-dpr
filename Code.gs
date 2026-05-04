@@ -194,6 +194,21 @@ function doPost(e) {
       return rollbackTimeline(rbProject, rbDate);
     }
 
+    if (action === 'appendTimelineLog') {
+      let logProject, logActivity, logEntry;
+      if (e.parameters && e.parameters.project) {
+        logProject = e.parameters.project[0];
+        logActivity = e.parameters.activity ? e.parameters.activity[0] : '';
+        logEntry = e.parameters.entry ? e.parameters.entry[0] : '';
+      } else {
+        const body = JSON.parse(e.postData.contents);
+        logProject = body.project;
+        logActivity = body.activity;
+        logEntry = body.entry;
+      }
+      return appendTimelineLogEntry(logProject, logActivity, logEntry);
+    }
+
     if (action === 'resetTimelineAI') {
       let resetProject, resetMode, resetDate;
       if (e.parameters && e.parameters.project) {
@@ -1142,6 +1157,11 @@ function applyTimelineUpdateToRowData(rowData, update, reportDate, dateFormatted
       ? `① ${dateFormatted} START DELAYED +${delayDays}d — ${reason}`
       : `① ${dateFormatted} +${delayDays}d — ${reason}`;
     delayLog = delayLog ? delayLog + '\n' + entry : entry;
+  } else {
+    const entry = buildTimelineStatusLogEntry(update, currentStatus, dateFormatted);
+    if (entry && delayLog.indexOf(entry) === -1) {
+      delayLog = delayLog ? delayLog + '\n' + entry : entry;
+    }
   }
 
   nextRow[TIMELINE_COL.CURRENT_END] = currentEnd || rowData[TIMELINE_COL.CURRENT_END];
@@ -1168,6 +1188,8 @@ function createTimelineRowDataForNewActivity(update, reportDate, dateFormatted, 
     delayLog = inferredStartDelayDays > 0 && (!update.delay_days || Number(update.delay_days) <= 0)
       ? `① ${dateFormatted} START DELAYED +${delayDays}d — ${reason}`
       : `① ${dateFormatted} +${delayDays}d — ${reason}`;
+  } else {
+    delayLog = buildTimelineStatusLogEntry(update, currentStatus, dateFormatted);
   }
 
   return [
@@ -1299,6 +1321,25 @@ function buildTimelineDelayReason(update, inferredStartDelayDays) {
   return 'No reason specified';
 }
 
+function buildTimelineStatusLogEntry(update, currentStatus, dateFormatted) {
+  if (!update || !dateFormatted) return '';
+  const status = normalizeTimelineStatus(currentStatus, 0).replace(/_/g, ' ');
+  const reason = update.reason ? String(update.reason).trim() : '';
+  let note = '';
+  if (status === 'completed') {
+    note = reason || 'Completed';
+  } else if (status === 'in progress') {
+    note = reason || 'In progress';
+  } else if (status === 'not started') {
+    note = reason || 'Not started';
+  } else if (status === 'on track') {
+    note = reason || 'On track';
+  } else {
+    note = reason || status;
+  }
+  return note ? `① ${dateFormatted} — ${note}` : '';
+}
+
 function normalizeTimelineStatus(status, inferredStartDelayDays) {
   const normalized = String(status || '').toLowerCase().trim().replace(/\s+/g, '_');
   if (inferredStartDelayDays > 0) {
@@ -1351,6 +1392,10 @@ function timelineActivitySimilarity(a, b) {
   Object.keys(aSet).forEach(function(token) {
     if (bSet[token]) intersection++;
   });
+  const targetTokenCount = Object.keys(aSet).length;
+  if (targetTokenCount >= 2 && intersection === targetTokenCount) {
+    return 0.75;
+  }
   const union = Object.keys(aSet).length + Object.keys(bSet).length - intersection;
   return union ? intersection / union : 0;
 }
@@ -1410,6 +1455,32 @@ function stringifyTimelineAIHistory(history) {
 function createTimelineSnapshot(rowNumber, rowData) {
   if (!rowNumber || !rowData) return { exists: false };
   return { exists: true, row: ensureTimelineRowLength(rowData).slice(0, TIMELINE_HEADERS.length) };
+}
+
+function appendTimelineLogEntry(project, activity, entry) {
+  try {
+    if (!project || !activity || !entry) throw new Error('Project, activity, and entry are required');
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const safeProject = canonicalizeProject(ss, project);
+    const sheet = ss.getSheetByName(safeProject + ' — Timeline');
+    if (!sheet) throw new Error('Timeline tab not found: ' + safeProject + ' — Timeline');
+
+    const rowMatch = findTimelineRowMatch(sheet, activity);
+    if (!rowMatch) throw new Error('Activity not found: ' + activity);
+
+    const rowData = ensureTimelineRowLength(rowMatch.rowData);
+    const cleanEntry = String(entry || '').trim();
+    const existingLog = String(rowData[TIMELINE_COL.DELAY_LOG] || '').trim();
+    const entries = existingLog ? existingLog.split('\n').map(function(v) { return v.trim(); }).filter(Boolean) : [];
+    if (entries.indexOf(cleanEntry) === -1) entries.push(cleanEntry);
+
+    rowData[TIMELINE_COL.DELAY_LOG] = entries.join('\n');
+    rowData[TIMELINE_COL.LAST_UPDATED] = new Date().toLocaleString('en-IN');
+    writeTimelineRow(sheet, rowMatch.rowNumber, rowData);
+    return jsonResponse({ success: true });
+  } catch (err) {
+    return jsonResponse({ success: false, error: err.message });
+  }
 }
 
 function resetTimelineAIFn(project, mode, resetDate) {
