@@ -2871,12 +2871,18 @@ window.addEventListener('storage', (e) => {
 document.addEventListener('visibilitychange', () => {
   if (document.hidden || !dashData) return;
   try {
+    const STALE_MS = 2 * 60 * 1000; // 2 minutes
+    const loadedAt = dashData._loadedAt || 0;
+    if (Date.now() - loadedAt > STALE_MS) {
+      loadDashboard();
+      return;
+    }
     const rollbackTs = Number(localStorage.getItem('covva-rollback-ts') || 0);
     const editTs = Number(localStorage.getItem('covva-timeline-edit-ts') || 0);
     const editProject = localStorage.getItem('covva-timeline-edit-project') || '';
-    if (rollbackTs > (dashData._loadedAt || 0)) {
+    if (rollbackTs > loadedAt) {
       loadDashboard();
-    } else if (editTs > (dashData._loadedAt || 0) && shouldReloadForProject(editProject)) {
+    } else if (editTs > loadedAt && shouldReloadForProject(editProject)) {
       loadDashboard();
     }
   } catch(e) {}
