@@ -334,19 +334,22 @@ body {
 
 .tl-switch {
   position: relative;
-  width: 34px;
-  height: 18px;
+  width: 40px;
+  height: 24px;
   cursor: pointer;
   flex-shrink: 0;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 .tl-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
 .tl-track {
   position: absolute;
   inset: 0;
-  border-radius: 9px;
+  border-radius: 12px;
   background: var(--border);
   border: 1px solid var(--border);
   transition: background 0.2s, border-color 0.2s;
+  cursor: pointer;
 }
 .tl-switch input:checked + .tl-track {
   background: var(--amber);
@@ -354,14 +357,15 @@ body {
 }
 .tl-thumb {
   position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 12px;
-  height: 12px;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: var(--surface);
   box-shadow: 0 1px 2px rgba(0,0,0,0.18);
   transition: transform 0.2s;
+  pointer-events: none;
 }
 .tl-switch input:checked + .tl-track .tl-thumb { transform: translateX(16px); }
 
@@ -466,13 +470,19 @@ function isMondayOrTuesday() {
   return dow === 1 || dow === 2;
 }
 
-function getTimelineActive(projectName) {
+function getTimelineActive(projectName, serverOverride) {
   if (isMondayOrTuesday()) return true;
+  if (serverOverride === true) return true;
   try { return localStorage.getItem(tlKey(projectName)) === 'true'; } catch(e) { return false; }
 }
 
 function setTimelineActive(projectName, val) {
   try { localStorage.setItem(tlKey(projectName), val ? 'true' : 'false'); } catch(e) {}
+  const d = new Date();
+  const dateStr = d.getFullYear() + '-' +
+    String(d.getMonth() + 1).padStart(2, '0') + '-' +
+    String(d.getDate()).padStart(2, '0');
+  fetch(`${APPS_SCRIPT_URL}?action=setTimelineOverride&project=${encodeURIComponent(projectName)}&date=${dateStr}&value=${val}`, { redirect: 'follow' }).catch(() => {});
 }
 
 
@@ -500,7 +510,7 @@ function buildCard(p) {
   const setupUrl = `setup.html?project=${encodeURIComponent(p.name)}`;
 
   const autoOn    = isMondayOrTuesday();
-  const tlActive  = getTimelineActive(p.name);
+  const tlActive  = getTimelineActive(p.name, p.timeline_override_today);
   const safeId    = 'tl-' + p.name.replace(/[^a-zA-Z0-9]/g, '_');
 
   const timelineToggleHtml = autoOn

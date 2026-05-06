@@ -736,12 +736,30 @@
   // ─── MODE STATE ───────────────────────────────────────────
   let currentMode = 'daily';
 
-  // Check if Weekly Update is available (Mon=1, Tue=2, or manually toggled on in home.html)
+  // Check if Weekly Update is available (Mon=1, Tue=2, or manually toggled on)
   const todayDay = now.getDay();
-  const weeklyAvailable = (todayDay === 1 || todayDay === 2) || (function() {
-    const dateStr = yyyy + '-' + mm + '-' + dd;
+  const dateStr  = yyyy + '-' + mm + '-' + dd;
+  let weeklyAvailable = (todayDay === 1 || todayDay === 2) || (function() {
     try { return localStorage.getItem('covva-timeline-' + projectName + '-' + dateStr) === 'true'; } catch(e) { return false; }
   })();
+
+  function applyWeeklyAvailable(val) {
+    weeklyAvailable = val;
+    const btn = document.getElementById('btn-weekly');
+    if (btn) {
+      btn.classList.toggle('disabled', !val);
+    }
+    const note = document.getElementById('modeNote');
+    if (note) note.textContent = val ? '' : 'Mon & Tue ko ON hoga';
+  }
+
+  // Check server for override — updates UI once response arrives
+  if (!weeklyAvailable && projectName) {
+    fetch(`${APPS_SCRIPT_URL}?action=getTimelineOverride&project=${encodeURIComponent(projectName)}&date=${dateStr}`, { redirect: 'follow' })
+      .then(r => r.json())
+      .then(d => { if (d.active) applyWeeklyAvailable(true); })
+      .catch(() => {});
+  }
 
   function initModeToggle() {
     if (!weeklyAvailable) {

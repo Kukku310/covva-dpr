@@ -1538,15 +1538,26 @@ function openGanttDetail(act, dprs) {
 
   const actName = act.activity || act.name || '';
   const slipDays = Number(act.total_slippage_days) || 0;
+  const status = (act.status || '').toLowerCase();
   const changeEntries = getTimelineDetailEntries(act);
+
+  const plannedEndD  = parseSheetDate(act.planned_end);
+  const currentEndD  = parseSheetDate(act.current_end);
+  const earlyDays    = (status === 'completed' && plannedEndD && currentEndD && currentEndD < plannedEndD)
+    ? Math.round((plannedEndD - currentEndD) / 86400000)
+    : 0;
 
   let html = `<div class="detail-title">${actName}</div>`;
   html += `<div class="detail-grid">`;
   html += detailCell('Planned Start', fmtDateShort(act.planned_start) || '—');
   html += detailCell('Planned End', fmtDateShort(act.planned_end) || '—');
-  html += detailCell('Current End', fmtDateShort(act.current_end) || '—');
+  html += detailCell('Actual End', fmtDateShort(act.current_end) || '—');
   html += detailCell('Status', (act.status || '—').replace(/_/g,' ').toUpperCase());
-  html += detailCell('Total Slippage', slipDays ? `${slipDays} days` : '0 days');
+  if (earlyDays > 0) {
+    html += `<div><div class="detail-cell-label">Completion</div><div class="detail-cell-value" style="color:#1e8449;font-weight:600">${earlyDays} day${earlyDays > 1 ? 's' : ''} early ✓</div></div>`;
+  } else {
+    html += detailCell('Total Slippage', slipDays ? `${slipDays} days` : '0 days');
+  }
   html += `</div>`;
 
   if (changeEntries.length) {
@@ -1969,6 +1980,9 @@ function buildFlags(activities, materials, drawings, today) {
   const wrap = document.createElement('div');
   wrap.className = 'flags-section';
 
+  let sessionDismissed = [];
+  try { sessionDismissed = JSON.parse(sessionStorage.getItem('covva-dismissed-flags') || '[]'); } catch(e) {}
+
   const flags = [];
 
   activities.forEach(act => {
@@ -1982,7 +1996,7 @@ function buildFlags(activities, materials, drawings, today) {
     if (act.delay_log && act.delay_log.toLowerCase().includes('work increase')) {
       flags.push({ icon: '🟣', title: `Work Increase — ${name}`, detail: act.delay_log.split('\n').find(l => l.toLowerCase().includes('work increase')) || '', type: 'wi' });
     }
-    if (status === 'completed') {
+    if (status === 'completed' && !sessionDismissed.includes(name)) {
       flags.push({ icon: '✅', title: `Early completion — ${name}`, detail: `Mark as closed?`, type: 'early', actName: name });
     }
   });
@@ -2036,7 +2050,7 @@ function buildFlags(activities, materials, drawings, today) {
           status: 'completed',
           manual_override: true
         };
-        fetch(GAS_URL, {
+        fetch(APPS_SCRIPT_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -2058,8 +2072,14 @@ function buildFlags(activities, materials, drawings, today) {
         });
       });
 
-      // Keep Open — just dismiss the flag row from view
+      // Keep Open — dismiss for this session
       row.querySelector('.flag-btn-dismiss').addEventListener('click', () => {
+        try {
+          const key = 'covva-dismissed-flags';
+          const dismissed = JSON.parse(sessionStorage.getItem(key) || '[]');
+          if (!dismissed.includes(f.actName)) dismissed.push(f.actName);
+          sessionStorage.setItem(key, JSON.stringify(dismissed));
+        } catch(e) {}
         row.style.transition = 'opacity 0.3s';
         row.style.opacity = '0';
         setTimeout(() => row.remove(), 300);
@@ -2318,8 +2338,8 @@ function openPDFModal() {
   }
   const ACT_TH = `text-align:left;padding:5px 8px;color:#5c5148;font-weight:500;font-size:10px;white-space:nowrap`;
   let ganttHtml = `<table style="width:100%;border-collapse:collapse;table-layout:fixed;font-family:'DM Mono',monospace;font-size:12px;margin-top:4px">`;
-  ganttHtml += `<colgroup><col style="width:46%"><col style="width:30%"><col style="width:8%"><col style="width:16%"></colgroup>`;
-  ganttHtml += `<thead><tr style="border-bottom:1px solid #e0dbd3;background:#f0ece6"><th style="${ACT_TH}">Activity</th><th style="${ACT_TH}">Timeline</th><th style="${ACT_TH}">Days</th><th style="${ACT_TH}">Status</th></tr></thead><tbody>`;
+  ganttHtml += `<colgroup><col style="width:38%"><col style="width:26%"><col style="width:18%"><col style="width:18%"></colgroup>`;
+  ganttHtml += `<thead><tr style="border-bottom:1px solid #e0dbd3;background:#f0ece6"><th style="${ACT_TH}">Activity</th><th style="${ACT_TH}">Planned</th><th style="${ACT_TH}">Actual End</th><th style="${ACT_TH}">Status</th></tr></thead><tbody>`;
   [...(dashData.activities || [])].sort((a, b) => {
     const da = parseSheetDate(a.planned_start);
     const db = parseSheetDate(b.planned_start);
@@ -2329,15 +2349,28 @@ function openPDFModal() {
     return da - db;
   }).forEach((a, i) => {
     const rowBg = i % 2 === 0 ? 'background:rgba(0,0,0,0.018)' : '';
-    const statusLabel = (a.status || '—').replace(/_/g,' ');
-    const statusColor = { completed:'#1e8449', on_track:'#1a6fa0', in_progress:'#1a6fa0', delayed:'#a93226', not_started:'#9a9188' }[(a.status||'').toLowerCase()] || '#9a9188';
-    const dateRange = fmtDateRange(a.planned_start, a.current_end || a.planned_end);
-    const days = calcDays(a.planned_start, a.current_end || a.planned_end);
+    const st = (a.status || '').toLowerCase();
+    const statusColors = { completed:'#1e8449', on_track:'#1a6fa0', in_progress:'#1a6fa0', delayed:'#a93226', not_started:'#9a9188' };
+    const statusColor = statusColors[st] || '#9a9188';
+    const plannedRange = fmtDateRange(a.planned_start, a.planned_end);
+    const plannedEndD = parseSheetDate(a.planned_end);
+    const actualEndD  = parseSheetDate(a.current_end);
+    const actualEndStr = actualEndD ? pdfFmtDate(a.current_end) : '—';
+    let statusLabel = (a.status || '—').replace(/_/g,' ');
+    if (st === 'completed' && plannedEndD && actualEndD) {
+      const diff = Math.round((plannedEndD - actualEndD) / 86400000);
+      if (diff > 0) statusLabel = `Completed · ${diff}d early`;
+      else if (diff < 0) statusLabel = `Completed · +${Math.abs(diff)}d late`;
+      else statusLabel = 'Completed on time';
+    } else if (st === 'delayed') {
+      const slip = Number(a.total_slippage_days) || 0;
+      if (slip > 0) statusLabel = `Delayed · +${slip}d`;
+    }
     ganttHtml += `<tr style="border-bottom:1px solid #f0ece6;${rowBg}">
       <td style="padding:4px 8px;word-break:break-word">${a.activity||'—'}</td>
-      <td style="padding:4px 8px;color:#5c5148">${dateRange}</td>
-      <td style="padding:4px 14px 4px 14px;color:#9a9188;white-space:nowrap">${days}</td>
-      <td style="padding:4px 8px 4px 14px;white-space:nowrap;text-transform:capitalize;color:${statusColor};font-weight:500">${statusLabel}</td>
+      <td style="padding:4px 8px;color:#5c5148;white-space:nowrap">${plannedRange}</td>
+      <td style="padding:4px 8px;color:#5c5148;white-space:nowrap">${actualEndStr}</td>
+      <td style="padding:4px 8px;white-space:nowrap;color:${statusColor};font-weight:500;font-size:10px">${statusLabel}</td>
     </tr>`;
   });
   ganttHtml += '</tbody></table>';

@@ -90,7 +90,7 @@ Important interpretation rule:
 
 Output format:
 
-📊 Weekly Progress Update
+📊 Timeline Update
 [Project] | [Date]
 
 Then list each activity mentioned with its status and any delay reason. Clean English. Concise.
@@ -338,6 +338,25 @@ function doGet(e) {
     return serveProjectList();
   }
 
+  if (action === 'setTimelineOverride' && project) {
+    const dateParam = params.date || '';
+    const val       = params.value === 'true';
+    const propKey   = 'tl_override_' + project + '_' + dateParam;
+    if (val) {
+      PropertiesService.getScriptProperties().setProperty(propKey, 'true');
+    } else {
+      PropertiesService.getScriptProperties().deleteProperty(propKey);
+    }
+    return jsonResponse({ success: true });
+  }
+
+  if (action === 'getTimelineOverride' && project) {
+    const dateParam = params.date || '';
+    const propKey   = 'tl_override_' + project + '_' + dateParam;
+    const val       = PropertiesService.getScriptProperties().getProperty(propKey);
+    return jsonResponse({ success: true, active: val === 'true' });
+  }
+
   return ContentService.createTextOutput('COVVA Site Intelligence Backend — OK');
 }
 
@@ -483,8 +502,12 @@ function serveProjectList() {
       }
     });
 
+    const todayKey  = Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyyy-MM-dd');
+    const scriptProps = PropertiesService.getScriptProperties();
+
     const projects = dedupedNames.map(function(name) {
-      const info = { name: name, start_date: '', end_date: '', last_dpr_date: '' };
+      const tlPropVal = scriptProps.getProperty('tl_override_' + name + '_' + todayKey);
+      const info = { name: name, start_date: '', end_date: '', last_dpr_date: '', timeline_override_today: tlPropVal === 'true' };
       const timeline = ss.getSheetByName(name + ' ' + enDash + ' Timeline') ||
                        ss.getSheetByName(name + ' ' + emDash + ' Timeline') ||
                        ss.getSheetByName(name + ' - Timeline');
@@ -1065,8 +1088,11 @@ function logToTimeline(project, dateFormatted, updates, reportDateInput) {
     const loggedAt = new Date().toLocaleString('en-IN');
     let rowMatch = findTimelineRowMatch(sheet, update.activity);
     if (rowMatch && String(rowMatch.rowData[TIMELINE_COL.MANUAL_OVERRIDE] || '').toUpperCase() === 'YES') {
-      Logger.log('Timeline update skipped for manual override: ' + (update.activity || ''));
-      return;
+      if (!update.work_increase) {
+        Logger.log('Timeline update skipped for manual override (soft lock): ' + (update.activity || ''));
+        return;
+      }
+      // work_increase updates are allowed through so scope additions still extend the bar
     }
 
     undoTimelineReportTokenForActivity(sheet, update.activity, reportToken);
