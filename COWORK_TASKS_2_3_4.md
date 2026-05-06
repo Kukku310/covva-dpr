@@ -405,6 +405,88 @@ The voice audio processing and Gemini formatting still happen at generation time
 
 ---
 
+## SESSION UPDATE — 04 MAY 2026
+
+### Issues Fixed
+
+**1. Gantt Detail Panel — Change-Log entries not showing**
+- Problem: Clicking a Gantt bar opened the detail panel, but change-log entries (DELAY / WORK INCREASE / START DELAYED) were not visible even in internal view.
+- Root Cause: The detail panel only read `delay_log` and the entire change-log block was being hidden in Client View. Status-change events (e.g. on-track → in-progress) that weren't tagged as DELAY had no description recorded, so the May 4 weekly update produced no visible log entries for those activities.
+
+**2. Weekly Timeline Logger — plain status updates not recorded**
+- Problem: `Code.gs` `logToTimeline()` only appended to the delay log when `delay_days > 0`. Activities with status changes but no delay (e.g. in_progress, completed) got no description logged.
+- Root Cause: The logger was gated on `delay_days > 0` instead of recording all status-change events.
+
+**3. Activity Matching — "Strip Lights" creating duplicate rows**
+- Problem: Weekly updates for "Strip Lights" were creating a new row instead of updating the existing "Fixing & Strip Lights" entry.
+- Root Cause: Exact string match only. Fuzzy/partial matching not implemented.
+
+### Fixes Implemented
+
+- `dashboard.html` (line 933): Gantt detail panel now shows change-log entries in **both** internal and client views. Missing May 4 status-change descriptions are rendered correctly.
+- `Code.gs` (line 1157): `logToTimeline()` now records plain status updates (not only delays) into the activity's delay log. Activity name matching improved so partial-name updates (e.g. "Strip Lights" → "Fixing & Strip Lights") map to the correct existing row instead of creating a duplicate.
+
+### Verification
+
+- Dashboard script syntax verified locally before push.
+- Gantt detail panel confirmed showing change-log entries for all activity types.
+- Caveat: Code.gs backend changes require Apps Script redeploy for future weekly updates to benefit from improved logging. **Redeployed as new version on 04 May 2026.**
+
+### Deployment
+
+- GitHub commits pushed:
+  - `97ed90f` — fix: Gantt detail panel — include change-log entries and May 4 status notes
+- GitHub credentials configured: personal access token stored in `~/.git-credentials` via `git credential store` for future pushes.
+- Google Apps Script redeployed as a new version (manual, via script.google.com) on 04 May 2026.
+
+---
+
+## SESSION UPDATE — 06 MAY 2026
+
+### Issues Fixed & Features Added
+
+**1. Confirm Close button — broken fetch**
+- Problem: `flag-btn-confirm` called `fetch(GAS_URL, ...)` but `GAS_URL` was never defined, so every Confirm Close silently threw `ReferenceError` and never saved.
+- Fix: Changed to `fetch(APPS_SCRIPT_URL, ...)` (the correct variable).
+
+**2. Confirm Close — full override replaced with soft lock**
+- Problem: Setting `manual_override: true` via Confirm Close blocked ALL automatic AI updates, including work-increase scope additions — so if the client or architect added scope after close, the Gantt bar would not move.
+- Fix (`Code.gs`): `logToTimeline()` now only skips updates when `manual_override = YES` AND `update.work_increase` is falsy. Work-increase updates are allowed through even on locked rows, so scope additions still extend the bar and log correctly.
+
+**3. Keep Open — no persistence**
+- Problem: Keep Open only removed the flag row from the DOM. On next reload it reappeared.
+- Fix: Keep Open now saves the dismissed activity name to `sessionStorage` (`covva-dismissed-flags`). `buildFlags()` filters these out on every render within the same browser session.
+
+**4. Timeline Update toggle — inaccessible on Android Chrome**
+- Problem A (CSS): The toggle switch was 34×18 px with a zero-size hidden `<input>`. On Android Chrome the tap target was too small and `-webkit-tap-highlight-color` caused ghost interactions.
+- Fix (`home.html`): Increased toggle to 40×24 px, added `touch-action: manipulation` and `-webkit-tap-highlight-color: transparent`.
+- Problem B (cross-device): Toggle state was stored only in browser `localStorage`. Setting it ON on a laptop had no effect on the supervisor's phone.
+- Fix: `setTimelineActive()` now also calls `APPS_SCRIPT_URL?action=setTimelineOverride` (persists to Apps Script `PropertiesService`). `serveProjectList()` returns `timeline_override_today: true/false` per project. `buildCard()` seeds the toggle from server state. `index.html` performs an async `getTimelineOverride` call on load and enables the Timeline Update button if the server flag is set — so the supervisor's phone auto-unlocks without manual action.
+
+**5. Gantt detail panel — early completion display**
+- Problem: Clicking a completed-early activity showed "Total Slippage: 0 days" — no indication it finished ahead of schedule.
+- Fix (`dashboard.html`): Renamed "Current End" → "Actual End". When `status = completed` and `current_end < planned_end`, replaces the slippage row with "X days early ✓" in green. Slippage row is still shown normally for delayed/in-progress activities.
+
+**6. Client PDF — activity table restructured**
+- Problem: Table showed Activity | Timeline (using current_end) | Days | Status. Clients couldn't see the planned commitment vs actual delivery, and early completion was not visible.
+- Fix (`dashboard.html`): Dropped the Days column. New structure:
+  - Activity (38%) | Planned (planned_start → planned_end, 26%) | Actual End (18%) | Status (18%)
+  - Status cell shows delta sub-note: "Completed · 8d early" (green), "Delayed · +5d" (red), "Completed on time" (green), or plain status for in-progress.
+
+**7. Report heading change**
+- `PROMPT_WEEKLY` in `Code.gs`: Changed `📊 Weekly Progress Update` → `📊 Timeline Update` to match the tool's labelling throughout.
+
+### Deployment
+
+- GitHub commit pushed: `32dba52` — feat: early completion display, PDF restructure, timeline toggle cross-device, soft lock
+- **Code.gs requires Apps Script redeploy** for the following to take effect:
+  - Soft lock (work-increase through manual override)
+  - `setTimelineOverride` / `getTimelineOverride` GET actions
+  - `timeline_override_today` in project list
+  - `📊 Timeline Update` heading in generated reports
+
+---
+
 ## Final Step
 Push all new and updated files to the covva-dpr GitHub repository:
 - dashboard.html (new)
