@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>COVVA Trend Intelligence Log - Charu Gandhi (Elicyon)</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --cream:   #F5F0E8;
+    --ink:     #1A1612;
+    --ink-mid: #4A3F35;
+    --ink-soft:#7A6E65;
+    --teak:    #8B5E3C;
+    --teak-lt: #C49A6C;
+    --gold:    #C8A96E;
+    --line:    #D8CFC4;
+    --tag-bg:  #EDE6DC;
+  }
+
+  body {
+    background: var(--cream);
+    color: var(--ink);
+    font-family: 'Georgia', serif;
+    font-size: 15px;
+    line-height: 1.7;
+    padding-bottom: 60px;
+  }
+
+  /* ── Header ── */
+  .site-header {
+    background: var(--ink);
+    padding: 28px 40px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+  .logo { color: var(--gold); font-family: 'Helvetica Neue', sans-serif; font-weight: 400; font-size: 13px; letter-spacing: 0.25em; text-transform: uppercase; }
+  .logo-sub { color: #6A5F55; font-family: 'Helvetica Neue', sans-serif; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; }
+
+  /* ── Scan Banner ── */
+  .scan-banner {
+    background: var(--ink);
+    border-top: 1px solid #2A241E;
+    padding: 13px 40px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .scan-pill { background: var(--gold); color: var(--ink); font-family: 'Helvetica Neue', sans-serif; font-size: 9px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; padding: 3px 10px; border-radius: 2px; }
+  .scan-date { color: #8A7F74; font-family: 'Helvetica Neue', sans-serif; font-size: 12px; letter-spacing: 0.1em; }
+
+  /* ── Page body ── */
+  .page-body { max-width: 900px; margin: 0 auto; padding: 60px 20px; }
+
+  /* ── Article Card ── */
+  .loc-tag { 
+    color: var(--teak); 
+    font-family: 'Helvetica Neue', sans-serif; 
+    font-weight: 700; 
+    font-size: 11px; 
+    letter-spacing: 0.18em; 
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: block;
+  }
+  .article-title { 
+    font-size: 36px; 
+    line-height: 1.1; 
+    font-weight: 400; 
+    margin-bottom: 16px; 
+    letter-spacing: -0.01em; 
+  }
+  
+  .project-specs {
+    background: #fff;
+    border: 1px solid var(--line);
+    padding: 24px;
+    margin-bottom: 40px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .spec-item { font-family: 'Helvetica Neue', sans-serif; font-size: 12px; }
+  .spec-label { color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-bottom: 4px; }
+  .spec-val { font-weight: 600; color: var(--ink); }
+
+  /* ── Feature Tags ── */
+  .tag-cloud { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 40px; }
+  .tag { 
+    background: var(--tag-bg); 
+    color: var(--ink-mid); 
+    padding: 5px 14px; 
+    border-radius: 3px; 
+    font-family: 'Helvetica Neue', sans-serif; 
+    font-size: 10px; 
+    font-weight: 600; 
+    letter-spacing: 0.1em; 
+    text-transform: uppercase;
+  }
+
+  /* ── Gallery ── */
+  .main-img { width: 100%; height: auto; display: block; border: 1px solid var(--line); margin-bottom: 20px; }
+  .gallery-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 40px; }
+  .grid-item { border: 1px solid var(--line); overflow: hidden; }
+  .grid-item img { width: 100%; height: auto; display: block; }
+
+  /* ── Insights ── */
+  .section-h { 
+    font-family: 'Helvetica Neue', sans-serif; 
+    font-size: 11px; 
+    font-weight: 800; 
+    letter-spacing: 0.25em; 
+    text-transform: uppercase; 
+    color: var(--ink-soft); 
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 8px;
+  }
+  .bullet-list { list-style: none; margin-bottom: 40px; }
+  .bullet-list li { margin-bottom: 12px; padding-left: 20px; position: relative; }
+  .bullet-list li::before { content: "•"; position: absolute; left: 0; color: var(--gold); }
+
+  .rd-signal-card { 
+    background: var(--ink); 
+    color: #fff;
+    padding: 30px; 
+    border-radius: 4px;
+    margin-top: 40px;
+  }
+  .rd-signal-card h3 { color: var(--gold); margin-bottom: 12px; }
+  .rd-text { font-size: 15px; line-height: 1.6; opacity: 0.9; }
+
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="logo">COVVA Trend Board</div>
+  <div class="logo-sub">MILLWORK MUSE</div>
+</header>
+
+<div class="scan-banner">
+  <span class="scan-pill">PROJECT LOG</span>
+  <span class="scan-date">CHELSEA BARRACKS PIED-À-TERRE</span>
+</div>
+
+<div class="page-body">
+
+  <span class="loc-tag">LONDON, UK (INDIAN-BRITISH DESIGN)</span>
+  <h2 class="article-title">The Couture-First Pied-à-Terre</h2>
+
+  <div class="project-specs">
+    <div class="spec-item"><span class="spec-label">Design Lead</span><span class="spec-val">Charu Gandhi (Elicyon)</span></div>
+    <div class="spec-item"><span class="spec-label">Size</span><span class="spec-val">1,805 Sq Ft</span></div>
+    <div class="spec-item"><span class="spec-label">Contractor</span><span class="spec-val">Elicyon (Execution)</span></div>
+    <div class="spec-item"><span class="spec-label">Key Problem</span><span class="spec-val">High-Density Couture Storage</span></div>
+  </div>
+
+  <div class="tag-cloud">
+    <span class="tag">METALLIC SILK WRAPS</span>
+    <span class="tag">HIDDEN LACQUER</span>
+    <span class="tag">OVER-BATH STORAGE</span>
+    <span class="tag">PEWTER SILK CABINETRY</span>
+    <span class="tag">SCULPTURAL BRASS</span>
+  </div>
+
+  <img src="https://assets.architecturaldigest.in/photos/69ca1b4bc8e4b6095b8fc4ce/master/w_1600%2Cc_limit/2.jpg" class="main-img" alt="Main Living View">
+
+  <div class="gallery-grid">
+    <div class="grid-item"><img src="https://assets.architecturaldigest.in/photos/69ca1b439f40af6bd1208ed3/master/w_1600%2Cc_limit/3.jpg" alt="Entryway"></div>
+    <div class="grid-item"><img src="https://assets.architecturaldigest.in/photos/69ca1b509f40af6bd1208ed5/master/w_1600%2Cc_limit/4.jpg" alt="Storage Detail"></div>
+  </div>
+
+  <h3 class="section-h">🪵 MILLWORK SPOTLIGHT</h3>
+  <ul class="bullet-list">
+    <li><strong>Hyper-Storage:</strong> Millwork integrated into "wasted" spaces—over bathtubs and within custom daybeds.</li>
+    <li><strong>Silk-Wrapped Joinery:</strong> Coat cupboards wrapped in Philip Jeffries Pewter Silk & Metallic Silk. A shift away from exposed timber.</li>
+    <li><strong>Hidden Lacquer Surprise:</strong> High-gloss colored lacquer used on the *interior* of wardrobes for a pop of surprise.</li>
+  </ul>
+
+  <h3 class="section-h">🪨 MATERIALITY</h3>
+  <ul class="bullet-list">
+    <li><strong>Wallcoverings on MDF:</strong> Using Dedar Silk Moiré and metallic silk as a decorative laminate alternative.</li>
+    <li><strong>Sculptural Metal:</strong> Custom brass handles by Barbara Fermat acting as the primary decorative accent on minimalist doors.</li>
+  </ul>
+
+  <div class="rd-signal-card">
+    <h3 class="section-h">💡 R&D SIGNAL</h3>
+    <p class="rd-text">
+      <strong>Trend:</strong> The "Wrapped Millwork" aesthetic. Charu Gandhi is moving away from timber grains toward metallic and fabric-textured cabinetry.
+      <br><br>
+      <strong>COVVA Action:</strong> We can replicate this using our **Cold Press** to mount high-end wallcoverings (Silk/Moiré) onto MDF panels, then protecting them with a **matte PU spray** in the paint booth. This allows us to offer "Elicyon-style" textures without sourcing rare veneers.
+    </p>
+  </div>
+
+</div>
+
+</body>
+</html>
