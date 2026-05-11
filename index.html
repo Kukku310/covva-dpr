@@ -646,6 +646,207 @@
   }
   .clarify-status.ok { color: var(--green); }
   .clarify-status.err { color: var(--red); }
+
+  /* ── GANTT BUTTON ── */
+  .gantt-btn {
+    display: none;
+    margin: 14px auto 0;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-mid);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    padding: 9px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    width: 100%;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .gantt-btn.visible { display: block; }
+  .gantt-btn:active { border-color: var(--amber); color: var(--amber); }
+
+  /* ── GANTT MODAL ── */
+  .gantt-modal {
+    position: fixed;
+    inset: 0;
+    background: var(--black);
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    transform: translateY(100%);
+    transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
+  }
+  .gantt-modal.visible { transform: translateY(0); }
+
+  .gantt-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .gantt-modal-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 17px;
+    letter-spacing: 0.08em;
+    color: var(--amber);
+  }
+  .gantt-close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 4px 6px;
+    line-height: 1;
+  }
+
+  .gantt-legend {
+    display: flex;
+    gap: 14px;
+    padding: 8px 18px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .gantt-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    color: var(--text-dim);
+    letter-spacing: 0.04em;
+  }
+  .gantt-legend-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 2px;
+  }
+  .gantt-today-legend {
+    width: 3px;
+    height: 12px;
+    border-radius: 1px;
+    background: var(--red);
+    opacity: 0.8;
+  }
+
+  .gantt-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .gantt-scroll {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .gantt-loading {
+    padding: 40px 20px;
+    text-align: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .gantt-row {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    min-height: 42px;
+    transition: background 0.12s;
+  }
+  .gantt-row:active { background: var(--surface); }
+  .gantt-row-near { background: rgba(212,135,42,0.05); }
+  .gantt-row-selected { background: var(--surface); }
+
+  .gantt-name {
+    width: 110px;
+    min-width: 110px;
+    padding: 6px 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 9.5px;
+    color: var(--text);
+    line-height: 1.35;
+    word-break: break-word;
+  }
+  .gantt-name-active { color: var(--amber); }
+
+  .gantt-bars {
+    flex: 1;
+    position: relative;
+    height: 42px;
+    overflow: hidden;
+  }
+  .gantt-bar {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 11px;
+    border-radius: 3px;
+    min-width: 5px;
+  }
+  .gantt-bar-active   { background: var(--amber); }
+  .gantt-bar-done     { background: var(--green); opacity: 0.85; }
+  .gantt-bar-delayed  { background: var(--red); }
+  .gantt-bar-paused   { background: var(--text-dim); }
+  .gantt-bar-default  { background: var(--text-dim); opacity: 0.4; }
+
+  .gantt-today-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--red);
+    opacity: 0.75;
+    pointer-events: none;
+  }
+
+  /* ── GANTT DETAIL PANEL ── */
+  .gantt-detail {
+    display: none;
+    border-top: 2px solid var(--amber);
+    padding: 12px 18px 16px;
+    flex-shrink: 0;
+    background: var(--surface);
+    max-height: 42vh;
+    overflow-y: auto;
+  }
+  .gantt-detail.visible { display: block; }
+  .gantt-detail-name {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--amber);
+    font-weight: 500;
+    margin-bottom: 10px;
+    letter-spacing: 0.04em;
+  }
+  .gantt-detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+    gap: 12px;
+  }
+  .gd-val { color: var(--text); text-align: right; flex-shrink: 0; }
+  .gd-red { color: var(--red) !important; }
+  .gd-green { color: var(--green) !important; }
+  .gantt-detail-close {
+    margin-top: 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    cursor: pointer;
+    text-align: center;
+    letter-spacing: 0.06em;
+  }
 </style>
 </head>
 <body>
@@ -727,6 +928,8 @@
       3. Koi problem ya delay<br>
       4. Kal ka plan
     </div>
+
+    <button class="gantt-btn" id="ganttBtn" onclick="showGantt()">📊 VIEW GANTT CHART</button>
   </div>
 
   <!-- Clip list -->
@@ -760,6 +963,27 @@
     <button class="new-report-btn" onclick="redoAll()">Start New Report</button>
   </div>
 
+</div>
+
+<!-- ── GANTT MODAL ── -->
+<div class="gantt-modal" id="ganttModal">
+  <div class="gantt-modal-header">
+    <span class="gantt-modal-title">GANTT — TIMELINE VIEW</span>
+    <button class="gantt-close" onclick="hideGantt()">✕</button>
+  </div>
+  <div class="gantt-legend">
+    <div class="gantt-legend-item"><div class="gantt-legend-dot" style="background:var(--amber)"></div>Active</div>
+    <div class="gantt-legend-item"><div class="gantt-legend-dot" style="background:var(--green)"></div>Done</div>
+    <div class="gantt-legend-item"><div class="gantt-legend-dot" style="background:var(--red)"></div>Delayed</div>
+    <div class="gantt-legend-item"><div class="gantt-legend-dot" style="background:var(--text-dim)"></div>Paused / NS</div>
+    <div class="gantt-legend-item"><div class="gantt-today-legend"></div>Today</div>
+  </div>
+  <div class="gantt-body">
+    <div class="gantt-scroll" id="ganttContent">
+      <div class="gantt-loading">Loading timeline…</div>
+    </div>
+    <div class="gantt-detail" id="ganttDetail"></div>
+  </div>
 </div>
 
 <div class="footer">COVVA SITE INTELLIGENCE</div>
@@ -907,6 +1131,9 @@
     document.getElementById('recordLabel').textContent = cfg.label;
     document.getElementById('instructionText').innerHTML = cfg.instruction;
     document.getElementById('dprLabel').textContent = cfg.dprLabel;
+
+    const ganttBtn = document.getElementById('ganttBtn');
+    if (ganttBtn) ganttBtn.classList.toggle('visible', mode === 'weekly');
   }
 
   initModeToggle();
@@ -1526,6 +1753,143 @@
     hideError();
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // ─── GANTT CHART ──────────────────────────────────────────
+  let _ganttData   = null;
+  let _ganttItems  = [];
+  let _ganttSelIdx = -1;
+
+  function showGantt() {
+    const modal = document.getElementById('ganttModal');
+    modal.classList.add('visible');
+    if (_ganttData) {
+      renderGantt(_ganttData);
+      return;
+    }
+    document.getElementById('ganttContent').innerHTML = '<div class="gantt-loading">Loading timeline…</div>';
+    document.getElementById('ganttDetail').classList.remove('visible');
+    fetch(APPS_SCRIPT_URL + '?action=dashboardData&project=' + encodeURIComponent(projectName), { redirect: 'follow' })
+      .then(r => r.json())
+      .then(data => {
+        _ganttData = data.activities || [];
+        renderGantt(_ganttData);
+      })
+      .catch(() => {
+        document.getElementById('ganttContent').innerHTML = '<div class="gantt-loading">Unable to load — check connection.</div>';
+      });
+  }
+
+  function hideGantt() {
+    document.getElementById('ganttModal').classList.remove('visible');
+  }
+
+  function parseGanttDate(s) {
+    if (!s) return null;
+    const p = String(s).split('/');
+    if (p.length === 3) return new Date(parseInt(p[2]), parseInt(p[1]) - 1, parseInt(p[0]));
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  function renderGantt(activities) {
+    const content = document.getElementById('ganttContent');
+    const today = new Date(); today.setHours(0,0,0,0);
+
+    const items = activities.filter(a => a.planned_start || a.planned_end);
+    if (!items.length) {
+      content.innerHTML = '<div class="gantt-loading">No timeline data yet.</div>';
+      return;
+    }
+
+    // Date range across all activities
+    let minDate = new Date(today), maxDate = new Date(today);
+    items.forEach(a => {
+      const ps = parseGanttDate(a.planned_start);
+      const pe = parseGanttDate(a.current_end || a.planned_end);
+      if (ps && ps < minDate) minDate = new Date(ps);
+      if (pe && pe > maxDate) maxDate = new Date(pe);
+    });
+    minDate = new Date(minDate.getTime() - 10 * 86400000); // 10-day left pad
+    maxDate = new Date(maxDate.getTime() + 14 * 86400000); // 2-week right pad
+    const span = maxDate - minDate;
+    const pct = ms => Math.max(0, Math.min(100, (ms - minDate) / span * 100));
+    const todayPct = pct(today.getTime());
+
+    _ganttItems = items;
+    _ganttSelIdx = -1;
+
+    let html = '';
+    items.forEach((a, i) => {
+      const ps  = parseGanttDate(a.planned_start);
+      const pe  = parseGanttDate(a.current_end || a.planned_end);
+      const st  = (a.status || '').toLowerCase();
+
+      const barL = ps ? pct(ps.getTime()) : 0;
+      const barR = pe ? pct(pe.getTime()) : barL + 3;
+      const barW = Math.max(0.8, barR - barL);
+
+      let barCls = 'gantt-bar-default';
+      if (st === 'completed')                      barCls = 'gantt-bar-done';
+      else if (st === 'delayed')                   barCls = 'gantt-bar-delayed';
+      else if (st === 'on_track' || st === 'in_progress') barCls = 'gantt-bar-active';
+      else if (st === 'paused')                    barCls = 'gantt-bar-paused';
+
+      const isNear = ps && pe && ps <= new Date(today.getTime() + 14*86400000) && pe >= new Date(today.getTime() - 7*86400000);
+      const nameCls = (st === 'on_track' || st === 'in_progress' || st === 'delayed') ? 'gantt-name-active' : '';
+
+      html += `<div class="gantt-row${isNear ? ' gantt-row-near' : ''}" id="grow-${i}" onclick="selectGanttRow(${i})">` +
+        `<div class="gantt-name ${nameCls}">${a.activity || '—'}</div>` +
+        `<div class="gantt-bars">` +
+          `<div class="gantt-bar ${barCls}" style="left:${barL.toFixed(2)}%;width:${barW.toFixed(2)}%"></div>` +
+          `<div class="gantt-today-line" style="left:${todayPct.toFixed(2)}%"></div>` +
+        `</div>` +
+      `</div>`;
+    });
+    content.innerHTML = html;
+
+    // Scroll so today's line is roughly centred
+    const scrollTarget = content.scrollWidth * (todayPct / 100) - content.clientWidth / 2;
+    content.scrollLeft = Math.max(0, scrollTarget);
+  }
+
+  function selectGanttRow(idx) {
+    const a = _ganttItems[idx];
+    if (!a) return;
+
+    // Highlight selected row
+    if (_ganttSelIdx >= 0) {
+      const prev = document.getElementById('grow-' + _ganttSelIdx);
+      if (prev) prev.classList.remove('gantt-row-selected');
+    }
+    const row = document.getElementById('grow-' + idx);
+    if (row) row.classList.add('gantt-row-selected');
+    _ganttSelIdx = idx;
+
+    const slip = a.total_slippage_days > 0 ? `+${a.total_slippage_days} days` : (a.total_slippage_days < 0 ? `${a.total_slippage_days} days` : 'On track');
+    const slipCls = a.total_slippage_days > 0 ? 'gd-red' : (a.total_slippage_days < 0 ? 'gd-green' : '');
+    const stLabel = (a.status || '').replace(/_/g, ' ').toUpperCase() || '—';
+
+    const detail = document.getElementById('ganttDetail');
+    detail.innerHTML =
+      `<div class="gantt-detail-name">${a.activity || '—'}</div>` +
+      `<div class="gantt-detail-row"><span>Status</span><span class="gd-val">${stLabel}</span></div>` +
+      `<div class="gantt-detail-row"><span>Planned Start</span><span class="gd-val">${a.planned_start || '—'}</span></div>` +
+      `<div class="gantt-detail-row"><span>Planned End</span><span class="gd-val">${a.planned_end || '—'}</span></div>` +
+      `<div class="gantt-detail-row"><span>Current End</span><span class="gd-val">${a.current_end || a.planned_end || '—'}</span></div>` +
+      `<div class="gantt-detail-row"><span>Slippage</span><span class="gd-val ${slipCls}">${slip}</span></div>` +
+      (a.delay_log ? `<div class="gantt-detail-row"><span>Delay Note</span><span class="gd-val">${a.delay_log}</span></div>` : '') +
+      `<div class="gantt-detail-close" onclick="closeGanttDetail()">— TAP TO CLOSE —</div>`;
+    detail.classList.add('visible');
+  }
+
+  function closeGanttDetail() {
+    document.getElementById('ganttDetail').classList.remove('visible');
+    if (_ganttSelIdx >= 0) {
+      const row = document.getElementById('grow-' + _ganttSelIdx);
+      if (row) row.classList.remove('gantt-row-selected');
+      _ganttSelIdx = -1;
+    }
   }
 
   // ─── THEME TOGGLE ─────────────────────────────────────────

@@ -170,6 +170,8 @@ Your task:
 
 IMPORTANT: Write all user-facing text in Hinglish (natural Hindi-English mix that a site supervisor would understand).
 
+CRITICAL: Your output MUST start with "📐 Drawing Update" — never write "📍 Progress Report", "Progress Report", or any other heading. This is a drawing status update, not a progress report.
+
 Output format:
 
 📐 Drawing Update
