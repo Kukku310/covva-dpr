@@ -103,37 +103,109 @@ On the next line, output exactly one single-line JSON object for Sheet update:
 Output ONLY the message, the marker, and the JSON. No section labels, no code fences, no commentary.`;
 
 
-const PROMPT_MATERIAL = `You are a construction site material delivery logger for COVVA, a high-end turnkey contractor in New Delhi.
+const PROMPT_MATERIAL = `You are a construction site material logger for COVVA, a high-end turnkey contractor in New Delhi.
 
-The audio is a Hinglish material delivery update from a site supervisor.
+The audio is a Hinglish material update from a site supervisor.
 
+The project context above may include a list of known client materials — use this list to match material names when the supervisor mentions a client procurement status change.
+
+PART 1 — PHYSICAL DELIVERY (supervisor reports material arriving on site with quantity):
 Extract:
 - Material name
 - Area / room it is for
 - Quantity received (with unit if mentioned)
 - Condition: good / damaged / partial
 - Damage detail if applicable
-- Quantity still pending (if partial)
+- Quantity still pending (if partial delivery)
 - Reason for partial delivery (if given)
 - Expected date for balance (if mentioned)
 - Supplier name (if mentioned)
 
-Output format:
+PART 2 — CLIENT PROCUREMENT STATUS (supervisor mentions client actions, NOT physical arrival):
+- "Client ko [material] ke baare mein bataya / inform kiya" → new_status: "Informed", set inform_date to today
+- "Client ne [material] order kar di / kar diya" → new_status: "Ordered"
+Note: "material site pe aa gaya / received" = physical delivery → handle in Part 1 only, NOT here.
+
+Output format (write the message in Hinglish):
 
 📦 Material Update
 [Project] | [Date]
 
+[If physical delivery:]
 [Material name] — [Area]
-Received: [qty] [condition note if issue]
+Received: [qty] [condition note if damaged or partial]
 [If partial: Balance pending: [qty] — Expected: [date]]
 [If damaged: Issue: [detail]]
 
-After the WhatsApp-ready message, put the marker ---JSON--- on its own line.
-On the next line, output exactly one single-line JSON object for Sheet update:
+[If client procurement status change:]
+✓ [Material name] — [new_status] (client ne action liya)
+
+After the message, put the marker ---JSON--- on its own line.
+On the next line, output exactly one single-line JSON object:
 ---JSON---
-{"material":"[name]","area":"[area]","qty_received":"[qty]","condition":"[good|damaged|partial]","damage_detail":"[detail or null]","qty_pending":"[qty or null]","pending_reason":"[reason or null]","expected_date":"[date or null]","supplier":"[name or null]"}
+{"has_delivery":[true or false],"material":"[name or null]","area":"[area or null]","qty_received":"[qty or null]","condition":"[good|damaged|partial or null]","damage_detail":"[detail or null]","qty_pending":"[qty or null]","pending_reason":"[reason or null]","expected_date":"[date or null]","supplier":"[name or null]","client_status_updates":[{"material":"[matched or mentioned name]","new_status":"[Informed|Ordered]","inform_date":"[date or null]"}]}
+
+Rules:
+- Set has_delivery=false if supervisor only mentioned client actions and no material physically arrived
+- If has_delivery=false, set material/qty_received/area to null
+- client_status_updates = [] if no client procurement status was mentioned
+- Do NOT include Received or Partially Received in client_status_updates — those come from physical delivery data above
 
 Output ONLY the message, the marker, and the JSON. No section labels, no code fences, no commentary.`;
+
+
+const PROMPT_DRAWING = `You are a construction drawing status tracker for COVVA, a high-end turnkey contractor in New Delhi.
+
+The audio is a Hinglish update from a site supervisor about one or more drawings.
+
+The project context above includes a list of known drawings for this project. Use this list for matching.
+
+Your task:
+1. Listen carefully to what the supervisor says about drawings
+2. Match mentioned drawings to the known drawings list (fuzzy match — supervisor will not use exact names)
+3. Determine status for each: Received / Awaited / Revision Pending
+4. If match is confident → include in updates array
+5. If no confident match → include in unmatched array with the 1-3 closest possible matches from the list
+
+IMPORTANT: Write all user-facing text in Hinglish (natural Hindi-English mix that a site supervisor would understand).
+
+Output format:
+
+📐 Drawing Update
+[Project] | [Date]
+
+[For each matched drawing:]
+✓ [Drawing Name] — [Status][, [date] ko mili]
+
+[For each unmatched mention:]
+⚠️ "[Jo supervisor ne kaha]" — yeh drawing list mein match nahi hui. Clarify karna padega.
+
+Then on its own line write exactly:
+---JSON---
+Then on the next line, one single-line JSON object:
+{"updates":[{"drawing_name":"[exact name from known list]","status":"[Received|Awaited|Revision Pending]","date_received":"[DD MMM YYYY or null]"}],"unmatched":[{"mentioned":"[what supervisor said about this drawing]","possible_matches":["closest 1-3 names from known list"]}]}
+
+If nothing mentioned about drawings → {"updates":[],"unmatched":[]}
+
+Output ONLY the message, the marker, and the JSON. Nothing else.`;
+
+
+const PROMPT_DRAWING_CLARIFY = `You are resolving an ambiguous drawing reference for COVVA site intelligence.
+
+The supervisor previously mentioned a drawing that could not be matched. Their clarification audio is provided.
+
+The project context above includes:
+- The original unmatched mention
+- The possible matches from the known drawings list
+
+Listen to the clarification and determine:
+- If supervisor confirms it matches one of the possible matches → action: "match"
+- If supervisor says it is a new drawing not in the list → action: "new" (use the name they gave, in English)
+
+Output ONLY this JSON — absolutely nothing before or after it:
+{"action":"match","drawing_name":"[exact name from possible matches]","status":"[Received|Awaited|Revision Pending]"}
+OR
+{"action":"new","drawing_name":"[name supervisor gave]","status":"[Received|Awaited|Revision Pending]"}`;
 
 
 // ═══════════════════════════════════════════════════════════════
@@ -209,6 +281,25 @@ function doPost(e) {
       return appendTimelineLogEntry(logProject, logActivity, logEntry);
     }
 
+    if (action === 'resolveDrawingClarification') {
+      let rProj, rMention, rMatches, rAudio, rDate;
+      if (e.parameters && e.parameters.project) {
+        rProj    = e.parameters.project[0];
+        rMention = e.parameters.unmatched_mention[0];
+        rMatches = JSON.parse(e.parameters.possible_matches[0]);
+        rAudio   = JSON.parse(e.parameters.audioPayload[0]);
+        rDate    = e.parameters.date ? e.parameters.date[0] : new Date().toISOString();
+      } else {
+        const body = JSON.parse(e.postData.contents);
+        rProj    = body.project;
+        rMention = body.unmatched_mention;
+        rMatches = body.possible_matches;
+        rAudio   = body.audioPayload;
+        rDate    = body.date || new Date().toISOString();
+      }
+      return resolveDrawingClarificationFn(rProj, rMention, rMatches, rAudio, formatDate(new Date(rDate)));
+    }
+
     if (action === 'resetTimelineAI') {
       let resetProject, resetMode, resetDate;
       if (e.parameters && e.parameters.project) {
@@ -251,8 +342,22 @@ function doPost(e) {
         const jsonMatch = structuredData.match(/\{[\s\S]*\}/);
         if (!jsonMatch) throw new Error('No JSON object found in structured data — Gemini response was malformed');
         const jsonData = JSON.parse(jsonMatch[0]);
-        logToMaterials(logProject, logDateFmt, jsonData);
-        try { matchAndUpdateMRDs(logProject, jsonData); } catch(mrdErr) { Logger.log('MRD match swallowed: ' + mrdErr.message); }
+        if (jsonData.has_delivery !== false && (jsonData.material || jsonData.qty_received)) {
+          logToMaterials(logProject, logDateFmt, jsonData);
+          try { matchAndUpdateMRDs(logProject, jsonData); } catch(mrdErr) { Logger.log('MRD match swallowed: ' + mrdErr.message); }
+        }
+        if (jsonData.client_status_updates && jsonData.client_status_updates.length) {
+          try { applyClientMaterialStatusUpdates(logProject, jsonData.client_status_updates, logDateFmt); } catch(csuErr) { Logger.log('Client status update error: ' + csuErr.message); }
+        }
+      } else if (logMode === 'drawing' && structuredData) {
+        const jsonMatch = structuredData.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error('No JSON object found in drawing structured data');
+        const jsonData = JSON.parse(jsonMatch[0]);
+        const drawingUpdates = jsonData.updates || [];
+        if (drawingUpdates.length) {
+          applyDrawingStatusUpdates(logProject, drawingUpdates, logDateFmt);
+        }
+        return jsonResponse({ success: true, updatesApplied: drawingUpdates.length });
       }
       return jsonResponse({ success: true });
     }
@@ -264,17 +369,38 @@ function doPost(e) {
     const noLog = e.parameters && e.parameters.noLog && e.parameters.noLog[0] === 'true';
     const dateFormatted = formatDate(new Date(date));
 
-    // Select prompt based on mode
+    // Select prompt + build extraContext based on mode
     let prompt;
-    if (mode === 'weekly')   prompt = PROMPT_WEEKLY;
-    else if (mode === 'material') prompt = PROMPT_MATERIAL;
-    else                     prompt = PROMPT_DAILY;
+    let extraContext = '';
 
-    const rawResponse = generateWithGemini(audioPayload, prompt, project, dateFormatted);
+    if (mode === 'weekly') {
+      prompt = PROMPT_WEEKLY;
+    } else if (mode === 'material') {
+      prompt = PROMPT_MATERIAL;
+      try {
+        const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+        const matNames = fetchProjectClientMaterialNames(ss, project);
+        if (matNames.length) {
+          extraContext = 'Known client materials for this project:\n' + matNames.map(function(n, i) { return (i + 1) + '. ' + n; }).join('\n');
+        }
+      } catch(ctxErr) { Logger.log('Material context fetch error: ' + ctxErr.message); }
+    } else if (mode === 'drawing') {
+      prompt = PROMPT_DRAWING;
+      try {
+        const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+        const drawNames = fetchProjectDrawingNames(ss, project);
+        extraContext = drawNames.length
+          ? 'Is project ki known drawings:\n' + drawNames.map(function(n, i) { return (i + 1) + '. ' + n; }).join('\n')
+          : 'Is project mein abhi koi drawing set up nahi ki gayi.';
+      } catch(ctxErr) { Logger.log('Drawing context fetch error: ' + ctxErr.message); }
+    } else {
+      prompt = PROMPT_DAILY;
+    }
+
+    const rawResponse = generateWithGemini(audioPayload, prompt, project, dateFormatted, extraContext);
 
     // Parse response and write to appropriate sheet tab
     let whatsappText = rawResponse;
-
     let structuredData = '';
 
     if (mode === 'weekly') {
@@ -288,7 +414,6 @@ function doPost(e) {
             logToTimeline(project, dateFormatted, jsonData.updates || [], new Date(date));
           }
         } catch(jsonErr) {
-          // JSON parse failed — still return whatsapp text, log the error
           Logger.log('Weekly JSON parse error: ' + jsonErr.message);
         }
       }
@@ -300,17 +425,24 @@ function doPost(e) {
         try {
           if (!noLog) {
             const jsonData = JSON.parse(parsed.jsonText);
-            logToMaterials(project, dateFormatted, jsonData);
-            // Intelligent MRD match — best-effort, never blocks voice log save
-            try { matchAndUpdateMRDs(project, jsonData); } catch(mrdErr) { Logger.log('MRD match swallowed: ' + mrdErr.message); }
+            if (jsonData.has_delivery !== false && (jsonData.material || jsonData.qty_received)) {
+              logToMaterials(project, dateFormatted, jsonData);
+              try { matchAndUpdateMRDs(project, jsonData); } catch(mrdErr) { Logger.log('MRD match swallowed: ' + mrdErr.message); }
+            }
+            if (jsonData.client_status_updates && jsonData.client_status_updates.length) {
+              try { applyClientMaterialStatusUpdates(project, jsonData.client_status_updates, dateFormatted); } catch(csuErr) { Logger.log('Client status update error: ' + csuErr.message); }
+            }
           }
         } catch(jsonErr) {
           Logger.log('Material JSON parse error: ' + jsonErr.message);
         }
       }
+    } else if (mode === 'drawing') {
+      const parsed = parseStructuredResponse(rawResponse);
+      whatsappText = parsed.whatsappText;
+      structuredData = parsed.jsonText;
+      // Drawing updates are always deferred to Copy button (noLog path only)
     } else {
-      // Daily — log to DPR tab + MASTER only if noLog is not set
-      // (when noLog=true, logging deferred to Copy button via logDPR action)
       if (!noLog) {
         logToDPR(project, dateFormatted, whatsappText);
       }
@@ -855,16 +987,16 @@ function readTabRaw(ss, tabName) {
 //  GEMINI — MULTI-CLIP CALL
 // ═══════════════════════════════════════════════════════════════
 
-function generateWithGemini(audioPayload, systemPrompt, project, dateFormatted) {
+function generateWithGemini(audioPayload, systemPrompt, project, dateFormatted, extraContext) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
   const safeAudioPayload = sanitizeAudioPayload(audioPayload);
 
-  let response = fetchGeminiContent(url, buildGeminiPayload(safeAudioPayload, systemPrompt, project, dateFormatted, true));
+  let response = fetchGeminiContent(url, buildGeminiPayload(safeAudioPayload, systemPrompt, project, dateFormatted, true, extraContext));
   if (response.getResponseCode() !== 200) {
     const body = response.getContentText();
     if (response.getResponseCode() === 400 && body.indexOf('INVALID_ARGUMENT') > -1) {
       Logger.log('Gemini rejected request with system_instruction. Retrying with prompt in user content.');
-      response = fetchGeminiContent(url, buildGeminiPayload(safeAudioPayload, systemPrompt, project, dateFormatted, false));
+      response = fetchGeminiContent(url, buildGeminiPayload(safeAudioPayload, systemPrompt, project, dateFormatted, false, extraContext));
     }
   }
 
@@ -885,11 +1017,12 @@ function fetchGeminiContent(url, payload) {
   });
 }
 
-function buildGeminiPayload(audioPayload, systemPrompt, project, dateFormatted, useSystemInstruction) {
+function buildGeminiPayload(audioPayload, systemPrompt, project, dateFormatted, useSystemInstruction, extraContext) {
   const parts = audioPayload.map(function(clip) {
     return { inline_data: { mime_type: clip.mime, data: clip.base64 } };
   });
-  const contextText = `Project: ${project}\nDate: ${dateFormatted}\nNumber of audio clips: ${audioPayload.length}\n\nListen to all clips in order. If a later clip corrects something in an earlier clip, use the correction. Synthesize all information into one output.`;
+  const extraContextBlock = extraContext ? ('\n\n' + extraContext) : '';
+  const contextText = `Project: ${project}\nDate: ${dateFormatted}\nNumber of audio clips: ${audioPayload.length}${extraContextBlock}\n\nListen to all clips in order. If a later clip corrects something in an earlier clip, use the correction. Synthesize all information into one output.`;
 
   if (useSystemInstruction) {
     parts.push({ text: contextText });
@@ -1706,9 +1839,9 @@ function matchAndUpdateMRDs(project, materialJson) {
       // Skip rows without Required On Site Date — not MRD rows
       if (!row[colRequired] || String(row[colRequired]).trim() === '') continue;
 
-      // Skip already RECEIVED rows
+      // Skip rows already at full Received status
       var currentStatus = String(row[colStatus] || '').toLowerCase();
-      if (currentStatus.indexOf('received') > -1) continue;
+      if (currentStatus === 'received') continue;
 
       var mrdName = String(row[colMaterial] || '').toLowerCase().trim();
       if (!mrdName) continue;
@@ -1727,7 +1860,7 @@ function matchAndUpdateMRDs(project, materialJson) {
         condition.indexOf('complete')     > -1 ||
         condition.indexOf('all received') > -1
       );
-      var newStatus = isFullDelivery ? 'RECEIVED' : 'PARTIAL DELIVERY';
+      var newStatus = isFullDelivery ? 'Received' : 'Partially Received';
 
       // Build delivery note from voice log fields
       var noteParts = [];
@@ -1877,4 +2010,150 @@ function jsonResponse(obj) {
   const output = ContentService.createTextOutput(JSON.stringify(obj));
   output.setMimeType(ContentService.MimeType.JSON);
   return output;
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  DRAWING INTELLIGENCE — fetch names, apply updates, clarify
+// ═══════════════════════════════════════════════════════════════
+
+function fetchProjectDrawingNames(ss, project) {
+  var safeProject = canonicalizeProject(ss, project);
+  var sheet = ss.getSheetByName(safeProject + ' — Drawings');
+  if (!sheet) return [];
+  var data = sheet.getDataRange().getValues();
+  var names = [];
+  for (var i = 1; i < data.length; i++) {
+    var name = String(data[i][0] || '').trim();
+    if (name) names.push(name);
+  }
+  return names;
+}
+
+function fetchProjectClientMaterialNames(ss, project) {
+  var safeProject = canonicalizeProject(ss, project);
+  var sheet = ss.getSheetByName(safeProject + ' — Materials');
+  if (!sheet) return [];
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return [];
+  var headers = data[0];
+  var colRequired = -1;
+  var colMaterial = -1;
+  for (var j = 0; j < headers.length; j++) {
+    var h = String(headers[j]).toLowerCase().trim();
+    if (h.indexOf('required on site') > -1 || h.indexOf('required_on_site') > -1) colRequired = j;
+    if (h.indexOf('material') > -1 && colMaterial < 0) colMaterial = j;
+  }
+  if (colMaterial < 0 || colRequired < 0) return [];
+  var names = [];
+  for (var i = 1; i < data.length; i++) {
+    var reqDate = String(data[i][colRequired] || '').trim();
+    var matName = String(data[i][colMaterial] || '').trim();
+    if (reqDate && matName) names.push(matName);
+  }
+  return names;
+}
+
+function applyDrawingStatusUpdates(project, updates, dateFormatted) {
+  if (!updates || !updates.length) return;
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var safeProject = canonicalizeProject(ss, project);
+  var tabName = safeProject + ' — Drawings';
+  var drwHeaders = ['Drawing Name', 'Drawing Type', 'Issued By', 'Required By Date', 'Date Received', 'Status', 'Notes'];
+  var sheet = getOrCreateTab(ss, tabName, drwHeaders, [180, 130, 150, 130, 130, 150, 220]);
+
+  updates.forEach(function(upd) {
+    if (!upd.drawing_name || !upd.status) return;
+    var data = sheet.getDataRange().getValues();
+    var foundRow = -1;
+    var targetName = String(upd.drawing_name).toLowerCase().trim();
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][0]).toLowerCase().trim() === targetName) { foundRow = i + 1; break; }
+    }
+
+    var dateReceived = (upd.status === 'Received') ? (upd.date_received || dateFormatted) : '';
+
+    if (foundRow > 0) {
+      sheet.getRange(foundRow, 5).setValue(dateReceived || data[foundRow - 1][4]);
+      sheet.getRange(foundRow, 6).setValue(upd.status);
+    } else {
+      // Minimal new row: name + status + date received only; PM fills metadata via Setup
+      sheet.appendRow([upd.drawing_name, '', '', '', dateReceived, upd.status, '']);
+    }
+    Logger.log('Drawing status applied: ' + upd.drawing_name + ' → ' + upd.status);
+  });
+}
+
+function resolveDrawingClarificationFn(project, unmatchedMention, possibleMatches, audioPayload, dateFormatted) {
+  try {
+    var extraContext = 'Unmatched mention: "' + unmatchedMention + '"\nPossible matches:\n' +
+      possibleMatches.map(function(m, i) { return (i + 1) + '. ' + m; }).join('\n');
+    var rawResponse = generateWithGemini(audioPayload, PROMPT_DRAWING_CLARIFY, project, dateFormatted, extraContext);
+    var jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('Clarification response had no JSON');
+    var resolved = JSON.parse(jsonMatch[0]);
+    return jsonResponse({ success: true, resolved: resolved });
+  } catch(err) {
+    return jsonResponse({ success: false, error: err.message });
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  CLIENT MATERIAL STATUS UPDATE — applyClientMaterialStatusUpdates
+//  Handles Informed / Ordered status changes from voice note.
+//  Received / Partially Received are handled by matchAndUpdateMRDs.
+// ═══════════════════════════════════════════════════════════════
+
+function applyClientMaterialStatusUpdates(project, updates, dateFormatted) {
+  if (!updates || !updates.length) return;
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var tabName = canonicalizeProject(ss, project) + ' — Materials';
+  var sheet = ss.getSheetByName(tabName);
+  if (!sheet) return;
+
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return;
+  var headers = data[0];
+
+  function findCol(candidates) {
+    for (var j = 0; j < headers.length; j++) {
+      var h = String(headers[j]).toLowerCase().trim();
+      for (var k = 0; k < candidates.length; k++) {
+        if (h.indexOf(candidates[k]) > -1) return j;
+      }
+    }
+    return -1;
+  }
+
+  var colMaterial = findCol(['material']);
+  var colRequired = findCol(['required on site', 'required_on_site']);
+  var colStatus   = findCol(['status']);
+  var colInform   = findCol(['inform date', 'inform_date']);
+
+  if (colMaterial < 0 || colRequired < 0) return;
+
+  updates.forEach(function(upd) {
+    if (!upd.material || !upd.new_status) return;
+    var targetMat = String(upd.material).toLowerCase().trim();
+
+    for (var i = 1; i < data.length; i++) {
+      var row = data[i];
+      // Only MRD rows (Required On Site Date is set)
+      if (!row[colRequired] || String(row[colRequired]).trim() === '') continue;
+
+      var mrdName = String(row[colMaterial] || '').toLowerCase().trim();
+      if (!mrdName) continue;
+
+      var isMatch = mrdName.indexOf(targetMat) > -1 || targetMat.indexOf(mrdName) > -1;
+      if (!isMatch) continue;
+
+      if (colStatus >= 0) sheet.getRange(i + 1, colStatus + 1).setValue(upd.new_status);
+      if (colInform >= 0 && upd.new_status === 'Informed') {
+        sheet.getRange(i + 1, colInform + 1).setValue(upd.inform_date || dateFormatted);
+      }
+      Logger.log('Client material status updated: ' + mrdName + ' → ' + upd.new_status);
+      break;
+    }
+  });
 }

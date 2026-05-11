@@ -549,6 +549,103 @@
     border-top: 1px solid var(--border);
     margin-top: 20px;
   }
+
+  /* ── CLARIFICATION SECTION ── */
+  .clarify-section { display: none; margin-bottom: 20px; }
+  .clarify-section.visible { display: block; }
+
+  .clarify-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--amber);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+  }
+
+  .clarify-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--amber-dim);
+    border-radius: 4px;
+    padding: 16px;
+    margin-bottom: 10px;
+  }
+  .clarify-card.resolved {
+    border-left-color: var(--green);
+    opacity: 0.8;
+  }
+
+  .clarify-mention {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--amber);
+    margin-bottom: 8px;
+  }
+
+  .clarify-question {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+
+  .clarify-matches {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text-mid);
+    line-height: 1.8;
+    margin-bottom: 12px;
+    padding-left: 4px;
+  }
+
+  .clarify-mic-btn {
+    padding: 9px 14px;
+    background: var(--panel);
+    color: var(--amber);
+    border: 1px solid var(--amber-dim);
+    border-radius: 4px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-right: 8px;
+    text-transform: uppercase;
+  }
+  .clarify-mic-btn.recording {
+    background: var(--amber-glow);
+    border-color: var(--amber);
+    animation: pulse-ring 1.5s ease infinite;
+  }
+  .clarify-mic-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .clarify-resolve-btn {
+    padding: 9px 14px;
+    background: transparent;
+    color: var(--green);
+    border: 1px solid rgba(46,204,113,0.4);
+    border-radius: 4px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    display: none;
+  }
+  .clarify-resolve-btn.visible { display: inline-block; }
+  .clarify-resolve-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .clarify-status {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 10px;
+    min-height: 16px;
+  }
+  .clarify-status.ok { color: var(--green); }
+  .clarify-status.err { color: var(--red); }
 </style>
 </head>
 <body>
@@ -589,6 +686,7 @@
       <div class="mode-note" id="modeNote"></div>
     </div>
     <button class="mode-btn" id="btn-material" onclick="switchMode('material')">Material<br>Log</button>
+    <button class="mode-btn" id="btn-drawing" onclick="switchMode('drawing')">Drawing<br>Update</button>
   </div>
 </div>
 
@@ -635,6 +733,12 @@
   <div class="clips-section" id="clipsSection">
     <div class="clips-label" id="clipsLabel">Recorded Clips</div>
     <div id="clipList"></div>
+  </div>
+
+  <!-- Drawing clarification cards — shown after drawing mode processing if unmatched items -->
+  <div class="clarify-section" id="clarifySection">
+    <div class="clarify-label">Clarification Chahiye</div>
+    <div id="clarifyList"></div>
   </div>
 
   <div class="error-box" id="errorBox"></div>
@@ -727,9 +831,20 @@
 1. Kaunsa material aaya aur kis area ke liye<br>
 2. Kitna aaya — quantity batao<br>
 3. Condition theek hai ya koi problem hai<br>
-4. Kuch nahi aaya ya aadha aaya toh reason aur baaki kab aayega`,
+4. Kuch nahi aaya ya aadha aaya toh reason aur baaki kab aayega<br>
+5. Agar client ne koi material order kiya ya inform hua — woh bhi bolo`,
       dprLabel: 'Material Update — Ready to Post',
       sheetNote: 'Materials sheet will update when you tap Copy & Post to Group.'
+    },
+    drawing: {
+      label: 'Drawing Update — Voice Input',
+      instruction: `<strong>Drawing status update yahan daalo.</strong><br><br>
+<strong>Bolne ka sequence:</strong><br>
+1. Kaunsi drawing ke baare mein baat kar rahe ho<br>
+2. Status kya hai — mili, abhi nahi aayi, ya revision chahiye<br>
+3. Agar mili toh aaj ki date automatically log ho jayegi`,
+      dprLabel: 'Drawing Update — Ready to Post',
+      sheetNote: 'Drawing sheet will update when you tap Copy & Post to Group.'
     }
   };
 
@@ -772,26 +887,22 @@
   function switchMode(mode) {
     if (mode === 'weekly' && !weeklyAvailable) return;
     if (clips.length > 0 || isRecording) {
-      // If recordings in progress, confirm before switching
       if (!confirm('Switch mode? Current recordings will be cleared.')) return;
       redoAll();
     }
     currentMode = mode;
 
-    // Update toggle buttons
-    ['daily', 'weekly', 'material'].forEach(m => {
+    ['daily', 'weekly', 'material', 'drawing'].forEach(m => {
       document.getElementById(`btn-${m}`).classList.remove('active');
     });
     document.getElementById(`btn-${mode}`).classList.add('active');
 
-    // Update mode note
     if (!weeklyAvailable) {
       document.getElementById('modeNote').textContent = 'Mon & Tue ko ON hoga';
     } else {
       document.getElementById('modeNote').textContent = '';
     }
 
-    // Update instruction text and labels
     const cfg = MODES[mode];
     document.getElementById('recordLabel').textContent = cfg.label;
     document.getElementById('instructionText').innerHTML = cfg.instruction;
@@ -1027,7 +1138,6 @@
     box.textContent = cleanReportText(text);
     document.getElementById('dprSection').classList.add('visible');
 
-    // Show sheet note based on mode
     const cfg = MODES[currentMode];
     const noteEl = document.getElementById('sheetNote');
     if (cfg.sheetNote) {
@@ -1037,7 +1147,154 @@
       noteEl.classList.remove('visible');
     }
 
+    // Drawing mode: parse unmatched items and show clarification cards
+    if (currentMode === 'drawing' && _lastStructuredData) {
+      try {
+        const jsonMatch = _lastStructuredData.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          _drawingUpdates   = parsed.updates   || [];
+          _drawingUnmatched = parsed.unmatched || [];
+          if (_drawingUnmatched.length) {
+            renderClarifyCards(_drawingUnmatched);
+          }
+        }
+      } catch(e) { /* malformed JSON — skip clarification */ }
+    }
+
     document.getElementById('dprSection').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  // ─── CLARIFICATION CARDS ─────────────────────────────────
+  function renderClarifyCards(unmatched) {
+    const section = document.getElementById('clarifySection');
+    const list    = document.getElementById('clarifyList');
+    list.innerHTML = '';
+    _clarifyClips    = {};
+    _clarifyResolved = {};
+    _clarifyRecorders = {};
+    _clarifyRecording = {};
+
+    unmatched.forEach(function(item, idx) {
+      const matches = (item.possible_matches || []);
+      const matchLines = matches.length
+        ? matches.map(function(m, i) { return (i + 1) + '. ' + m; }).join('<br>')
+        : '(koi possible match nahi mili)';
+
+      const card = document.createElement('div');
+      card.className = 'clarify-card';
+      card.id = 'clarify-card-' + idx;
+      card.innerHTML = `
+        <div class="clarify-mention">"${escapeHtml(item.mentioned || '')}"</div>
+        <div class="clarify-question">Kya aap in mein se kisi ke baare mein bol rahe the?</div>
+        <div class="clarify-matches">${matchLines}<br>— Ya phir yeh nayi drawing hai?</div>
+        <button class="clarify-mic-btn" id="clarify-mic-${idx}" onclick="toggleClarifyRecording(${idx})">Mic — Bolo</button>
+        <button class="clarify-resolve-btn" id="clarify-resolve-${idx}" onclick="submitClarification(${idx})">Resolve Karo</button>
+        <div class="clarify-status" id="clarify-status-${idx}"></div>
+      `;
+      list.appendChild(card);
+    });
+
+    section.classList.add('visible');
+  }
+
+  function escapeHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  async function toggleClarifyRecording(idx) {
+    if (_clarifyRecording[idx]) {
+      stopClarifyRecording(idx);
+    } else {
+      await startClarifyRecording(idx);
+    }
+  }
+
+  async function startClarifyRecording(idx) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const chunks = [];
+      const preferredTypes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'];
+      const supportedType = preferredTypes.find(t => MediaRecorder.isTypeSupported(t));
+      const mr = supportedType ? new MediaRecorder(stream, { mimeType: supportedType }) : new MediaRecorder(stream);
+      const actualMime = mr.mimeType || supportedType || 'audio/mp4';
+
+      mr.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+      mr.onstop = () => {
+        stream.getTracks().forEach(t => t.stop());
+        const blob = new Blob(chunks, { type: actualMime });
+        _clarifyClips[idx] = { blob, mimeType: actualMime };
+        const micBtn = document.getElementById('clarify-mic-' + idx);
+        if (micBtn) { micBtn.textContent = 'Re-record'; micBtn.classList.remove('recording'); }
+        const resolveBtn = document.getElementById('clarify-resolve-' + idx);
+        if (resolveBtn) resolveBtn.classList.add('visible');
+        const statusEl = document.getElementById('clarify-status-' + idx);
+        if (statusEl) { statusEl.textContent = 'Clip ready — Resolve Karo pe tap karo.'; statusEl.className = 'clarify-status'; }
+      };
+
+      mr.start(250);
+      _clarifyRecorders[idx] = mr;
+      _clarifyRecording[idx] = true;
+
+      const micBtn = document.getElementById('clarify-mic-' + idx);
+      if (micBtn) { micBtn.textContent = 'Ruko — Recording...'; micBtn.classList.add('recording'); }
+      const statusEl = document.getElementById('clarify-status-' + idx);
+      if (statusEl) { statusEl.textContent = 'Sun raha hoon...'; statusEl.className = 'clarify-status'; }
+    } catch(err) {
+      const statusEl = document.getElementById('clarify-status-' + idx);
+      if (statusEl) { statusEl.textContent = 'Mic access nahi mila. Permission check karo.'; statusEl.className = 'clarify-status err'; }
+    }
+  }
+
+  function stopClarifyRecording(idx) {
+    const mr = _clarifyRecorders[idx];
+    if (mr && _clarifyRecording[idx]) {
+      mr.stop();
+      _clarifyRecording[idx] = false;
+    }
+  }
+
+  async function submitClarification(idx) {
+    const clipData = _clarifyClips[idx];
+    if (!clipData) return;
+    const resolveBtn = document.getElementById('clarify-resolve-' + idx);
+    const statusEl   = document.getElementById('clarify-status-' + idx);
+    if (resolveBtn) resolveBtn.disabled = true;
+    if (statusEl) { statusEl.textContent = 'Resolve ho raha hai...'; statusEl.className = 'clarify-status'; }
+
+    try {
+      const b64 = await blobToBase64(clipData.blob);
+      const item = _drawingUnmatched[idx];
+      const form = new FormData();
+      form.append('action', 'resolveDrawingClarification');
+      form.append('project', projectName);
+      form.append('date', _lastDate || getReportDate());
+      form.append('unmatched_mention', item.mentioned || '');
+      form.append('possible_matches', JSON.stringify(item.possible_matches || []));
+      form.append('audioPayload', JSON.stringify([{ base64: b64, mime: clipData.mimeType }]));
+
+      const res = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: form, redirect: 'follow' });
+      const result = await res.json();
+
+      if (result.success && result.resolved) {
+        const r = result.resolved;
+        _clarifyResolved[idx] = r;
+        const card = document.getElementById('clarify-card-' + idx);
+        if (card) card.classList.add('resolved');
+        if (statusEl) {
+          statusEl.textContent = r.action === 'new'
+            ? '✓ Nayi drawing add hogi: "' + r.drawing_name + '" — ' + r.status
+            : '✓ Match mila: "' + r.drawing_name + '" — ' + r.status;
+          statusEl.className = 'clarify-status ok';
+        }
+        if (resolveBtn) resolveBtn.style.display = 'none';
+      } else {
+        throw new Error(result.error || 'Unknown error');
+      }
+    } catch(err) {
+      if (statusEl) { statusEl.textContent = 'Error: ' + err.message + ' — dobara try karo.'; statusEl.className = 'clarify-status err'; }
+      if (resolveBtn) resolveBtn.disabled = false;
+    }
   }
 
   function cleanReportText(text) {
@@ -1054,6 +1311,14 @@
   let _lastDate    = null;
   let _lastStructuredData = '';
 
+  // Drawing mode state
+  let _drawingUpdates   = [];   // confident matches from initial processing
+  let _drawingUnmatched = [];   // items needing clarification
+  let _clarifyClips     = {};   // { idx: {blob, mimeType} }
+  let _clarifyResolved  = {};   // { idx: {drawing_name, status, action} }
+  let _clarifyRecorders = {};   // active MediaRecorder per card
+  let _clarifyRecording = {};   // boolean per card
+
   function copyDPR() {
     const text = cleanReportText(document.getElementById('dprOutput').innerText);
     document.getElementById('dprOutput').textContent = text;
@@ -1067,7 +1332,6 @@
         btn.classList.remove('copied');
       }, 2500);
 
-      // ── Weekly: guard against missing structured data before logging ──
       if (_lastMode === 'weekly' && !_lastStructuredData) {
         const note = document.getElementById('sheetNote');
         if (note) {
@@ -1078,7 +1342,6 @@
         return;
       }
 
-      // ── Material: guard against missing structured data before logging ──
       if (_lastMode === 'material' && !_lastStructuredData) {
         const note = document.getElementById('sheetNote');
         if (note) {
@@ -1089,7 +1352,19 @@
         return;
       }
 
-      // ── Log the current (possibly edited) text to Sheets ──
+      // ── Drawing: combine confident updates + resolved clarifications ──
+      if (_lastMode === 'drawing') {
+        const allUpdates = _drawingUpdates.slice();
+        Object.values(_clarifyResolved).forEach(function(r) {
+          if (r && r.drawing_name && r.status) {
+            allUpdates.push({ drawing_name: r.drawing_name, status: r.status, date_received: null });
+          }
+        });
+        const combinedStructuredData = JSON.stringify({ updates: allUpdates });
+        logEditedDPR(text, _lastMode, _lastDate || getReportDate(), combinedStructuredData);
+        return;
+      }
+
       logEditedDPR(text, _lastMode, _lastDate || getReportDate(), _lastStructuredData);
     };
 
@@ -1172,6 +1447,33 @@
             note.classList.add('visible');
           }
         });
+    } else if (mode === 'drawing') {
+      const note = document.getElementById('sheetNote');
+      if (note) { note.textContent = 'Drawing sheet update ho raha hai…'; note.style.color = ''; note.classList.add('visible'); }
+      req
+        .then(r => r.json())
+        .then(result => {
+          if (note) {
+            if (result && result.success) {
+              const count = result.updatesApplied || 0;
+              note.textContent = count > 0
+                ? '✓ ' + count + ' drawing(s) sheet mein update ho gayi'
+                : '✓ Koi drawing update nahi thi — sheet unchanged';
+              note.style.color = '#1e8449';
+            } else {
+              note.textContent = '⚠️ Drawing update fail hui — ' + ((result && result.error) || 'unknown error') + '. Re-generate karke dobara try karo.';
+              note.style.color = '#c0392b';
+            }
+            note.classList.add('visible');
+          }
+        })
+        .catch(() => {
+          if (note) {
+            note.textContent = '⚠️ Drawing update fail hui — network error. Re-generate karke dobara try karo.';
+            note.style.color = '#c0392b';
+            note.classList.add('visible');
+          }
+        });
     } else {
       req.catch(() => {});
     }
@@ -1209,6 +1511,17 @@
     document.getElementById('clipList').innerHTML = '';
     document.getElementById('sheetNote').classList.remove('visible');
     _lastStructuredData = '';
+
+    // Clear drawing clarification state
+    _drawingUpdates   = [];
+    _drawingUnmatched = [];
+    _clarifyClips     = {};
+    _clarifyResolved  = {};
+    _clarifyRecorders = {};
+    _clarifyRecording = {};
+    document.getElementById('clarifySection').classList.remove('visible');
+    document.getElementById('clarifyList').innerHTML = '';
+
     hideStatus();
     hideError();
 
