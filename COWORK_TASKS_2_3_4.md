@@ -487,6 +487,105 @@ The voice audio processing and Gemini formatting still happen at generation time
 
 ---
 
+## SESSION UPDATE — 11 MAY 2026
+
+### Features Added — Voice Input Intelligence Expansion
+
+---
+
+**1. New Voice Mode: Drawing Update (4th mode button)**
+
+- A dedicated 4th mode added to `index.html` alongside Daily Report, Timeline Update, and Material Log.
+- Supervisor taps Drawing Update, records a Hinglish voice note about any drawing status.
+- Backend fetches the project's existing drawing names from the Drawings sheet and injects them into the Gemini prompt as context before making the API call.
+- Gemini fuzzy-matches the mentioned drawing against the known list and determines the new status: Received / Awaited / Revision Pending.
+- Confident matches: Drawing sheet updated silently (Status column + Date Received if applicable). Confirmation shown in Hinglish.
+- Low-confidence / no match: Sheet NOT updated. A clarification card appears in the UI with the unmatched mention and up to 3 possible matches listed.
+- Clarification flow: Supervisor records a second voice clip directly on the clarification card. Backend makes a second Gemini call (PROMPT_DRAWING_CLARIFY) with the original mention and shortlist as context. Gemini resolves to either match an existing drawing or flag as a new drawing (minimal: name + status only — type and issued-by left blank for PM to fill in Setup). Resolved items are merged into the Copy & Post payload.
+- Copy & Post sends all confirmed updates (original + resolved) to the sheet via the logDPR drawing handler.
+- All flags and confirmations output in Hinglish throughout.
+
+---
+
+**2. Material Log — Client Procurement Status Updates**
+
+- `PROMPT_MATERIAL` extended to detect two separate intents in one voice note:
+  - Physical delivery (existing behaviour — append new delivery row)
+  - Client procurement status change without physical delivery (new — update existing MRD row Status column)
+- New JSON fields: `has_delivery` (boolean) and `client_status_updates` (array of `{material, new_status, inform_date}`).
+- If `has_delivery = false`, no delivery row is appended — prevents blank ghost rows.
+- Client status vocabulary (proper case throughout): **Not Yet Informed / Informed / Ordered / Partially Received / Received**
+- When status = Informed, `inform_date` column is also written.
+- Known client material names (MRD rows) are fetched from the sheet and injected into the Gemini prompt as context for fuzzy matching.
+- Material Log instruction text updated in Hinglish to prompt supervisors to also mention client procurement actions.
+
+---
+
+**3. Material Status Vocabulary — Proper Case Fix**
+
+- `matchAndUpdateMRDs()` previously wrote `RECEIVED` and `PARTIAL DELIVERY` (all caps).
+- Updated to write `Received` and `Partially Received` (proper case) on all new writes.
+- Historic rows left as-is; no sheet migration performed.
+- Skip condition tightened: only skips rows where status is exactly `received` (case-insensitive exact match) — Partially Received rows are now eligible for a subsequent full-delivery update.
+
+---
+
+**4. extraContext Injection into Gemini Calls**
+
+- `generateWithGemini()` and `buildGeminiPayload()` both accept an optional `extraContext` parameter (5th/6th argument).
+- When provided, extra context is appended to the project/date context block before all audio parts.
+- Used by: Drawing mode (known drawing names), Material mode (known client material names), Drawing clarification (unmatched mention + possible matches).
+- All existing callers unchanged — extraContext defaults to empty string.
+
+---
+
+### New Functions in Code.gs
+
+| Function | Purpose |
+|---|---|
+| `fetchProjectDrawingNames(ss, project)` | Returns array of drawing names from the project's Drawings sheet |
+| `fetchProjectClientMaterialNames(ss, project)` | Returns array of client material names (MRD rows only — those with a Required On Site Date) |
+| `applyDrawingStatusUpdates(project, updates, dateFormatted)` | Writes status + date_received to matched drawing rows; creates minimal new rows for unmatched new drawings |
+| `applyClientMaterialStatusUpdates(project, updates, dateFormatted)` | Updates Status (and Inform Date if Informed) on matched MRD rows |
+| `resolveDrawingClarificationFn(...)` | Second Gemini call using PROMPT_DRAWING_CLARIFY — resolves ambiguous drawing mentions via supervisor's follow-up voice clip |
+
+---
+
+### New Prompts in Code.gs
+
+| Prompt | Purpose |
+|---|---|
+| `PROMPT_DRAWING` | Drawing status extraction — outputs Hinglish message + JSON with `updates` (confident) and `unmatched` (low confidence) arrays |
+| `PROMPT_DRAWING_CLARIFY` | Clarification resolution — outputs pure JSON: `{action: "match"|"new", drawing_name, status}` |
+
+---
+
+### New Actions in doPost
+
+| Action | Handler |
+|---|---|
+| `generateDPR` (mode=drawing) | Fetches drawing names, calls Gemini with PROMPT_DRAWING, returns whatsappText + structuredData |
+| `resolveDrawingClarification` | Accepts clarification audio + unmatched context, returns resolved action |
+| `logDPR` (mode=drawing) | Parses updates array from structuredData, calls applyDrawingStatusUpdates |
+| `logDPR` (mode=material) | Updated to check has_delivery before calling logToMaterials; also calls applyClientMaterialStatusUpdates for client_status_updates |
+
+---
+
+### Dashboard & Setup — No Changes Required
+
+The dashboard already reads from the Drawings and Materials sheets on load. Drawing status updates and client material status updates written by the new voice flows are reflected automatically on next dashboard load. No changes to `dashboard.html` or `setup.html` were needed.
+
+---
+
+### Deployment
+
+- GitHub commits pushed:
+  - `35cf468` — feat: drawing status voice mode, material status updates, Hinglish flags
+- Merged to `main` and pushed — GitHub Pages updated automatically.
+- **Code.gs redeployed as new version on 11 May 2026** (required for all new backend functions and prompt changes to take effect).
+
+---
+
 ## Final Step
 Push all new and updated files to the covva-dpr GitHub repository:
 - dashboard.html (new)
