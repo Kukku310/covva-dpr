@@ -487,7 +487,70 @@ The voice audio processing and Gemini formatting still happen at generation time
 
 ---
 
-## SESSION UPDATE — 11 MAY 2026
+## SESSION UPDATE — 11 MAY 2026 (Part 2)
+
+### Bugs Fixed
+
+---
+
+**1. Drawing Prompt — "Sheet Unchanged" False Negative**
+
+- Problem: When the `Golf Links — Drawings` tab was empty (first-time use), `fetchProjectDrawingNames` returned `[]` and Gemini received "no drawings set up yet" as context. With no list to match against, Gemini returned `{"updates":[],"unmatched":[]}` even though it correctly listed the drawings in the human-readable report. `updatesApplied` = 0 → "Koi drawing update nahi thi — sheet unchanged" shown falsely.
+- Fix (`Code.gs` — `PROMPT_DRAWING`): Added rule 6: when the known drawings list is empty or not set up, add ALL mentioned drawings to the `updates` array using names as spoken by the supervisor. Never return empty updates when the supervisor clearly mentioned receiving or awaiting drawings.
+
+---
+
+**2. Drawing Prompt — Ambiguous Qualifier Not Triggering Clarification Card**
+
+- Problem: A drawing with a specific qualifier (e.g. "toilet plumbing **center line** drawings") was being force-matched to an existing entry ("Toilet Plumbing Centre Line") without flagging that the qualifier might indicate a different, new drawing. No clarification card appeared.
+- Fix (`Code.gs` — `PROMPT_DRAWING`): Extended rule 5 — if a drawing has a specific qualifier (e.g. "center line", "ground floor", "1st floor", "elevation") that could make it DIFFERENT from an existing list entry, route to `unmatched` for clarification rather than force-matching.
+- Note: The site flag "Need additional toilet plumbing drawings to determine height for fittings and fixtures" is a flag raised by the supervisor — it is NOT automatically added as a new drawing entry. To add it: either create it via the Setup page as a new drawing row (status: Awaited), or record a new Drawing Update voice note mentioning it — the clarification card will then appear.
+
+---
+
+**3. Drawing Prompt — "Progress Report" Heading Override**
+
+- Problem: Gemini was occasionally generating "📍 Progress Report" as the output heading instead of "📐 Drawing Update" when in drawing mode.
+- Fix (`Code.gs` — `PROMPT_DRAWING`): Added `CRITICAL` instruction explicitly forbidding "📍 Progress Report" or "Progress Report" as a heading. Output must start with "📐 Drawing Update".
+
+---
+
+### Feature Added — Gantt Chart for Supervisors (Timeline Update Mode)
+
+- A `📊 VIEW GANTT CHART` button now appears below the instructions when the supervisor switches to **Timeline Update** mode. Hidden in all other modes.
+- Tapping opens a full-screen slide-up panel:
+  - **Legend row**: Active (amber) / Done (green) / Delayed (red) / Paused/NS (grey) / Today line (red)
+  - **Activity rows**: horizontal bars, coloured by status. Activities near today subtly highlighted.
+  - **Today line**: red vertical line on every bar row, auto-scrolled into view on open.
+  - **Tap any row**: detail panel slides up at the bottom showing Activity, Status, Planned Start, Planned End, Current End, Slippage, Delay Note. Tap `— TAP TO CLOSE —` to dismiss.
+- Data is fetched live from the same `dashboardData` Apps Script endpoint used by the dashboard. Cached after first load per session.
+- Purpose: supervisor can open the Gantt to see where today's line is, identify which activities are active, then close and record the voice update for those specific activities.
+
+---
+
+### Data Update — Golf Links Drawings (11 May 2026)
+
+- Three drawings received on 11 May 2026 were NOT written to the sheet due to the "sheet unchanged" bug above.
+- Updated manually (Option A — direct sheet edit) by user:
+  - `A.C. Location` → Received, 11 May 2026
+  - `MS & RCC Drawing Ground Floor` → Received, 11 May 2026
+  - `Toilet Plumbing Centre Line` → Received, 11 May 2026
+- Dashboard reflects these statuses on next load.
+
+---
+
+### Deployment
+
+- GitHub commits pushed:
+  - `9581be9` — fix: drawing prompt handles empty list and ambiguous qualifiers
+  - `7b123a0` — feat: Gantt chart for supervisors + drawing prompt hardening
+- **Code.gs requires Apps Script redeploy** for the following to take effect:
+  - Drawing prompt fixes (empty list, qualifier routing, heading enforcement)
+  - Note: the `logDPR` drawing branch was introduced in `35cf468` but the deployment at the time of this session still ran an older version — `updatesApplied` was consistently returning `{"success":true}` without the count. Redeploy is required for `Copy & Post to Group` to correctly write drawing status updates to the sheet.
+
+---
+
+## SESSION UPDATE — 11 MAY 2026 (Part 1)
 
 ### Features Added — Voice Input Intelligence Expansion
 
