@@ -847,6 +847,80 @@
     text-align: center;
     letter-spacing: 0.06em;
   }
+
+  /* ── GANTT FOOTER (mic + generate) ── */
+  .gantt-footer {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+  .gantt-mic-btn {
+    width: 46px;
+    height: 46px;
+    min-width: 46px;
+    border-radius: 50%;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, border-color 0.2s;
+    flex-shrink: 0;
+  }
+  .gantt-mic-btn svg { width: 20px; height: 20px; }
+  .gantt-mic-btn.recording {
+    background: var(--red);
+    border-color: var(--red);
+    animation: gantt-mic-pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes gantt-mic-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(192,57,43,0.5); }
+    50%       { box-shadow: 0 0 0 8px rgba(192,57,43,0); }
+  }
+  .gantt-footer-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .gantt-footer-timer {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--amber);
+    display: none;
+  }
+  .gantt-footer-timer.visible { display: block; }
+  .gantt-footer-status {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.04em;
+  }
+  .gantt-footer-status.active { color: var(--red); }
+  .gantt-footer-status.saved  { color: var(--green); }
+  .gantt-generate-btn {
+    display: none;
+    background: var(--amber);
+    color: var(--black);
+    border: none;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.07em;
+    padding: 10px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .gantt-generate-btn.visible { display: block; }
 </style>
 </head>
 <body>
@@ -983,6 +1057,21 @@
       <div class="gantt-loading">Loading timeline…</div>
     </div>
     <div class="gantt-detail" id="ganttDetail"></div>
+  </div>
+  <div class="gantt-footer" id="ganttFooter">
+    <button class="gantt-mic-btn" id="ganttMicBtn" onclick="toggleRecording()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/>
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+        <line x1="12" y1="19" x2="12" y2="22"/>
+        <line x1="8" y1="22" x2="16" y2="22"/>
+      </svg>
+    </button>
+    <div class="gantt-footer-info">
+      <div class="gantt-footer-timer" id="ganttTimer"></div>
+      <div class="gantt-footer-status" id="ganttMicStatus">Tap to record</div>
+    </div>
+    <button class="gantt-generate-btn" id="ganttGenerateBtn" onclick="ganttGenerate()">GENERATE REPORT</button>
   </div>
 </div>
 
@@ -1149,17 +1238,25 @@
   // ─── TIMER ────────────────────────────────────────────────
   function startTimer() {
     seconds = 0;
-    const timerEl = document.getElementById('timer');
+    const timerEl      = document.getElementById('timer');
+    const ganttTimerEl = document.getElementById('ganttTimer');
     timerEl.classList.add('visible');
+    if (ganttTimerEl) ganttTimerEl.classList.add('visible');
     timerInterval = setInterval(() => {
       seconds++;
       const m = Math.floor(seconds / 60);
       const s = seconds % 60;
-      timerEl.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+      const timeStr = `${m}:${s.toString().padStart(2, '0')}`;
+      timerEl.textContent = timeStr;
+      if (ganttTimerEl) ganttTimerEl.textContent = timeStr;
     }, 1000);
   }
 
-  function stopTimer() { clearInterval(timerInterval); }
+  function stopTimer() {
+    clearInterval(timerInterval);
+    const ganttTimerEl = document.getElementById('ganttTimer');
+    if (ganttTimerEl) ganttTimerEl.classList.remove('visible');
+  }
 
   function formatDuration(s) {
     const m = Math.floor(s / 60);
@@ -1203,6 +1300,7 @@
       document.getElementById('processBtn').classList.remove('visible');
       document.getElementById('redoBtn').classList.remove('visible');
       startTimer();
+      syncGanttMicUI();
 
     } catch (err) {
       showError('Microphone access denied. Please allow microphone permission and try again.');
@@ -1217,6 +1315,7 @@
       document.getElementById('micBtn').classList.remove('recording');
       document.getElementById('micStatus').textContent = 'Processing...';
       document.getElementById('micStatus').classList.remove('active');
+      syncGanttMicUI();
     }
   }
 
@@ -1238,6 +1337,7 @@
 
     document.getElementById('processBtn').classList.add('visible');
     document.getElementById('redoBtn').classList.add('visible');
+    syncGanttMicUI();
   }
 
   // ─── CLIP RENDERING ───────────────────────────────────────
@@ -1283,11 +1383,13 @@
       document.getElementById('processBtn').classList.remove('visible');
       document.getElementById('redoBtn').classList.remove('visible');
     }
+    syncGanttMicUI();
   }
 
   // ─── GENERATE ─────────────────────────────────────────────
   async function generateReport() {
     if (clips.length === 0) { showError('No recordings found. Please record first.'); return; }
+    hideGantt();
     hideError();
     setStatus(`Sending ${clips.length} clip${clips.length > 1 ? 's' : ''} to Gemini...`);
     document.getElementById('processBtn').classList.remove('visible');
@@ -1751,6 +1853,7 @@
 
     hideStatus();
     hideError();
+    syncGanttMicUI();
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -1782,6 +1885,38 @@
 
   function hideGantt() {
     document.getElementById('ganttModal').classList.remove('visible');
+  }
+
+  function ganttGenerate() {
+    hideGantt();
+    generateReport();
+  }
+
+  function syncGanttMicUI() {
+    const micBtn    = document.getElementById('ganttMicBtn');
+    const statusEl  = document.getElementById('ganttMicStatus');
+    const timerEl   = document.getElementById('ganttTimer');
+    const genBtn    = document.getElementById('ganttGenerateBtn');
+    if (!micBtn) return;
+
+    micBtn.classList.toggle('recording', isRecording);
+
+    if (isRecording) {
+      statusEl.textContent = 'Recording… tap to stop';
+      statusEl.className = 'gantt-footer-status active';
+      timerEl.classList.add('visible');
+      genBtn.classList.remove('visible');
+    } else if (clips.length > 0) {
+      statusEl.textContent = `${clips.length} clip${clips.length > 1 ? 's' : ''} saved ✓`;
+      statusEl.className = 'gantt-footer-status saved';
+      timerEl.classList.remove('visible');
+      genBtn.classList.add('visible');
+    } else {
+      statusEl.textContent = 'Tap to record';
+      statusEl.className = 'gantt-footer-status';
+      timerEl.classList.remove('visible');
+      genBtn.classList.remove('visible');
+    }
   }
 
   function parseGanttDate(s) {
