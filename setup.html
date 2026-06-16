@@ -555,6 +555,38 @@ table.edit-table {
   cursor: pointer;
 }
 .cascade-dontask input { cursor: pointer; }
+
+/* ── PROJECT SUMMARY STRIP ── */
+.project-summary {
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: var(--amber-glow);
+  border: 1px solid var(--amber-dim);
+  border-radius: 6px;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--dim);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  align-items: baseline;
+}
+.project-summary .ps-label {
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 1.5px;
+  font-size: 12px;
+  color: var(--amber);
+}
+.project-summary .ps-val {
+  color: var(--text);
+  font-weight: 500;
+}
+.project-summary .ps-sep { color: var(--dim); opacity: 0.6; }
+.project-summary .ps-total {
+  margin-left: auto;
+  color: var(--amber);
+  font-weight: 600;
+}
 </style>
 </head>
 <body>
@@ -619,6 +651,13 @@ table.edit-table {
       </table>
     </div>
     <button class="add-row-btn" onclick="addActivityRow('new')">+ Add Activity</button>
+    <div class="project-summary" id="newProjectSummary">
+      <span class="ps-label">Project</span>
+      <span class="ps-val" id="newProjectSummaryStart">—</span>
+      <span class="ps-sep">→</span>
+      <span class="ps-val" id="newProjectSummaryEnd">—</span>
+      <span class="ps-total" id="newProjectSummaryDays">—</span>
+    </div>
 
     <!-- Material Table -->
     <div class="field-label" style="margin-top:20px;margin-bottom:8px">Client Materials</div>
@@ -716,6 +755,13 @@ table.edit-table {
           </table>
         </div>
         <button class="add-row-btn" onclick="addActivityRow('edit')">+ Add Activity</button>
+        <div class="project-summary" id="editProjectSummary">
+          <span class="ps-label">Project</span>
+          <span class="ps-val" id="editProjectSummaryStart">—</span>
+          <span class="ps-sep">→</span>
+          <span class="ps-val" id="editProjectSummaryEnd">—</span>
+          <span class="ps-total" id="editProjectSummaryDays">—</span>
+        </div>
         <div class="inline-msg" id="editActivityMsg"></div>
       </div>
 
@@ -1043,6 +1089,7 @@ async function _onActivityStartChange(tr, context) {
   const tbody = tr.parentElement;
   _sortActivityBody(tbody);
   _flashRow(tr);
+  _recomputeProjectSummary(context);
 }
 
 async function _onActivityEndChange(tr, context) {
@@ -1064,6 +1111,7 @@ async function _onActivityEndChange(tr, context) {
     const delta = Math.round((newEnd - oldEnd) / 86400000);
     await _maybeCascade(tr, context, delta);
   }
+  _recomputeProjectSummary(context);
 }
 
 async function _onActivityDaysChange(tr, context) {
@@ -1087,6 +1135,7 @@ async function _onActivityDaysChange(tr, context) {
     const delta = Math.round((newEnd - oldEnd) / 86400000);
     await _maybeCascade(tr, context, delta);
   }
+  _recomputeProjectSummary(context);
 }
 
 async function _maybeCascade(tr, context, delta) {
@@ -1103,6 +1152,28 @@ async function _maybeCascade(tr, context, delta) {
     proceed = ans.ok;
   }
   if (proceed) _cascadeShift(tbody, tr, delta);
+}
+
+function _recomputeProjectSummary(context) {
+  const tbody = document.getElementById(context === 'new' ? 'newActivityBody' : 'editActivityBody');
+  if (!tbody) return;
+  let minStart = null, maxEnd = null;
+  for (const r of tbody.querySelectorAll('tr')) {
+    const s = _parseDateInput((r.querySelector('.act-start') || {}).value);
+    const e = _parseDateInput((r.querySelector('.act-end') || {}).value);
+    if (s && (!minStart || s < minStart)) minStart = s;
+    if (e && (!maxEnd || e > maxEnd)) maxEnd = e;
+  }
+  const prefix = context === 'new' ? 'newProjectSummary' : 'editProjectSummary';
+  const startEl = document.getElementById(prefix + 'Start');
+  const endEl = document.getElementById(prefix + 'End');
+  const daysEl = document.getElementById(prefix + 'Days');
+  if (!startEl || !endEl || !daysEl) return;
+  const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const fmt = d => d ? `${String(d.getDate()).padStart(2,'0')} ${M[d.getMonth()]} ${d.getFullYear()}` : '—';
+  startEl.textContent = fmt(minStart);
+  endEl.textContent = fmt(maxEnd);
+  daysEl.textContent = (minStart && maxEnd) ? `${_daysInclusive(minStart, maxEnd)} days` : '—';
 }
 
 function _wireActivityRowHandlers(tr, context) {
@@ -1169,7 +1240,7 @@ function addActivityRow(context, data) {
       <td><input class="td-input act-end" type="date"></td>
       <td>${activityStatusSelect('Not Started')}</td>
       <td><input class="td-input" type="text" placeholder="Notes"></td>
-      <td><button class="td-del" onclick="this.closest('tr').remove()">✕</button></td>
+      <td><button class="td-del" onclick="this.closest('tr').remove(); _recomputeProjectSummary('new');">✕</button></td>
     `;
   }
 
@@ -1181,6 +1252,8 @@ function addActivityRow(context, data) {
   _recalcRowDays(tr);
   // Wire up linkage handlers
   _wireActivityRowHandlers(tr, context);
+  // Refresh project summary strip
+  _recomputeProjectSummary(context);
 }
 
 function addMaterialRow(context, data) {
@@ -1369,7 +1442,7 @@ async function deleteActivityRow(btn) {
     showMsg('editActivityMsg', 'error', 'Select a project before deleting.');
     return;
   }
-  if (!activityName) { tr.remove(); return; }
+  if (!activityName) { tr.remove(); _recomputeProjectSummary('edit'); return; }
   btn.disabled = true;
   btn.textContent = '…';
   try {
@@ -1381,6 +1454,7 @@ async function deleteActivityRow(btn) {
     const data = await resp.json();
     if (data.success) {
       tr.remove();
+      _recomputeProjectSummary('edit');
       signalTimelineChanged(project);
     } else {
       btn.disabled = false;

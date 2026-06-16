@@ -881,6 +881,7 @@ body {
 
 <div class="pdf-bar" id="pdfBar">
   <span class="pdf-bar-text">Client View — showing public data only</span>
+  <button class="export-btn" onclick="openKickoffPDFModal()">⬇ Export Kickoff PDF</button>
   <button class="export-btn" onclick="openPDFModal()">⬇ Export PDF</button>
 </div>
 
@@ -901,11 +902,11 @@ body {
       <div class="modal-project-info" id="pdfModalMeta"></div>
     </div>
     <div class="pdf-section-group">
-      <div class="modal-section-title">Activity Schedule</div>
+      <div class="modal-section-title" id="pdfActivityTitle">Activity Schedule</div>
       <div id="pdfGanttContainer"></div>
     </div>
     <div class="pdf-section-group" style="margin-top:20px">
-      <div class="modal-section-title">Pending Client Actions</div>
+      <div class="modal-section-title" id="pdfMaterialsTitle">Pending Client Actions</div>
       <div id="pdfMaterialsContainer"></div>
     </div>
     <div class="pdf-section-group" style="margin-top:16px">
@@ -2308,6 +2309,12 @@ function buildPDFGanttFromData(activities, today) {
 
 function openPDFModal() {
   if (!dashData) return;
+  // Reset section titles in case the kickoff template was viewed previously
+  const _actT = document.getElementById('pdfActivityTitle');
+  if (_actT) _actT.textContent = 'Activity Schedule';
+  const _matT = document.getElementById('pdfMaterialsTitle');
+  if (_matT) _matT.textContent = 'Pending Client Actions';
+
   const today = new Date();
   const todayStr = `${String(today.getDate()).padStart(2,'0')}/${String(today.getMonth()+1).padStart(2,'0')}/${today.getFullYear()}`;
   const pName = dashData.project || currentProject;
@@ -2471,6 +2478,156 @@ function openPDFModal() {
   }
 
   document.getElementById('pdfFooter').textContent = `COVVA — ${pName}  ·  ${todayStr}  ·  Confidential`;
+  document.getElementById('pdfModal').classList.add('visible');
+}
+
+// ─── KICKOFF PDF TEMPLATE ─────────────────────────────────────
+// Project-start "rough timeline" template. Activity table shows Planned
+// Start/End/Days only (no Actual End, no Status). Materials shown as
+// "Required Client Actions" with Material/Location/Target Date. Drawings
+// shown as "Drawings Required — Architect / Consultant" with Drawing/
+// Issued By/Required By. Procurement section hidden. Existing snapshot
+// template (openPDFModal) is untouched.
+function openKickoffPDFModal() {
+  if (!dashData) return;
+  const today = new Date();
+  const todayStr = `${String(today.getDate()).padStart(2,'0')}/${String(today.getMonth()+1).padStart(2,'0')}/${today.getFullYear()}`;
+  const pName = dashData.project || currentProject;
+
+  document.getElementById('pdfModalMeta').innerHTML =
+    `<strong>${pName}</strong><span style="font-weight:400;font-size:11px;color:#9a9188">${todayStr} · Kickoff</span>`;
+
+  const PDF_M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function pdfFmtDate(val) {
+    const d = parseSheetDate(val);
+    if (!d) return '—';
+    return String(d.getDate()).padStart(2,'0') + ' ' + PDF_M[d.getMonth()] + ' ' + d.getFullYear();
+  }
+  function daysInclusive(s, e) { return Math.round((e - s) / 86400000) + 1; }
+
+  // Section titles
+  const actTitle = document.getElementById('pdfActivityTitle');
+  if (actTitle) actTitle.textContent = 'Activity Schedule';
+  const matsTitle = document.getElementById('pdfMaterialsTitle');
+  if (matsTitle) matsTitle.textContent = 'Required Client Actions';
+
+  // ── Activity Schedule: Activity | Planned Start | Planned End | Days ──
+  const ACT_TH = `text-align:left;padding:5px 8px;color:#5c5148;font-weight:500;font-size:10px;white-space:nowrap`;
+  let ganttHtml = `<table style="width:100%;border-collapse:collapse;table-layout:fixed;font-family:'DM Mono',monospace;font-size:12px;margin-top:4px">`;
+  ganttHtml += `<colgroup><col style="width:40%"><col style="width:22%"><col style="width:22%"><col style="width:16%"></colgroup>`;
+  ganttHtml += `<thead><tr style="border-bottom:1px solid #e0dbd3;background:#f0ece6">`;
+  ganttHtml += `<th style="${ACT_TH}">Activity</th>`;
+  ganttHtml += `<th style="${ACT_TH}">Planned Start</th>`;
+  ganttHtml += `<th style="${ACT_TH}">Planned End</th>`;
+  ganttHtml += `<th style="${ACT_TH};text-align:center">Days</th>`;
+  ganttHtml += `</tr></thead><tbody>`;
+
+  const sortedActs = [...(dashData.activities || [])].sort((a, b) => {
+    const da = parseSheetDate(a.planned_start);
+    const db = parseSheetDate(b.planned_start);
+    if (!da && !db) return 0;
+    if (!da) return 1;
+    if (!db) return -1;
+    return da - db;
+  });
+
+  let projStart = null, projEnd = null;
+  sortedActs.forEach((a, i) => {
+    const rowBg = i % 2 === 0 ? 'background:rgba(0,0,0,0.018)' : '';
+    const ps = parseSheetDate(a.planned_start);
+    const pe = parseSheetDate(a.planned_end);
+    const days = (ps && pe) ? daysInclusive(ps, pe) : '—';
+    if (ps && (!projStart || ps < projStart)) projStart = ps;
+    if (pe && (!projEnd || pe > projEnd)) projEnd = pe;
+    ganttHtml += `<tr style="border-bottom:1px solid #f0ece6;${rowBg}">
+      <td style="padding:4px 8px;word-break:break-word">${a.activity||'—'}</td>
+      <td style="padding:4px 8px;color:#5c5148;white-space:nowrap;font-size:11px">${pdfFmtDate(a.planned_start)}</td>
+      <td style="padding:4px 8px;color:#5c5148;white-space:nowrap;font-size:11px">${pdfFmtDate(a.planned_end)}</td>
+      <td style="padding:4px 8px;color:#5c5148;text-align:center;font-size:11px">${days}</td>
+    </tr>`;
+  });
+
+  // Summary row (Project Start / End / Total Days)
+  if (projStart && projEnd) {
+    const totalDays = daysInclusive(projStart, projEnd);
+    const fmtS = String(projStart.getDate()).padStart(2,'0') + ' ' + PDF_M[projStart.getMonth()] + ' ' + projStart.getFullYear();
+    const fmtE = String(projEnd.getDate()).padStart(2,'0') + ' ' + PDF_M[projEnd.getMonth()] + ' ' + projEnd.getFullYear();
+    ganttHtml += `<tr style="background:#ebe6dc;border-top:2px solid #c9c3b7">
+      <td style="padding:6px 8px;color:#3a342d;font-weight:600">Project</td>
+      <td style="padding:6px 8px;color:#3a342d;font-weight:600;white-space:nowrap;font-size:11px">${fmtS}</td>
+      <td style="padding:6px 8px;color:#3a342d;font-weight:600;white-space:nowrap;font-size:11px">${fmtE}</td>
+      <td style="padding:6px 8px;color:#3a342d;font-weight:600;text-align:center;font-size:11px">${totalDays}</td>
+    </tr>`;
+  }
+
+  ganttHtml += '</tbody></table>';
+  document.getElementById('pdfGanttContainer').innerHTML = ganttHtml;
+
+  // ── Required Client Actions: Material | Location | Target Date ──
+  const PDF_TBL = `width:100%;border-collapse:collapse;table-layout:fixed;font-family:'DM Mono',monospace;font-size:12px;margin-top:4px`;
+  const PDF_TH  = `text-align:left;padding:5px 8px;color:#5c5148;font-weight:500;font-size:10px;white-space:nowrap;overflow:hidden`;
+  const PDF_HD  = `border-bottom:1px solid #e0dbd3;background:#f0ece6`;
+  const PDF_COL3 = `<colgroup><col style="width:48%"><col style="width:26%"><col style="width:26%"></colgroup>`;
+
+  const allMats = [...(dashData.materials || [])].sort((a, b) => {
+    const da = parseSheetDate(a.target_date);
+    const db = parseSheetDate(b.target_date);
+    if (!da && !db) return 0;
+    if (!da) return 1;
+    if (!db) return -1;
+    return da - db;
+  });
+
+  let matsHtml;
+  if (allMats.length) {
+    matsHtml = `<table style="${PDF_TBL}">${PDF_COL3}<thead><tr style="${PDF_HD}"><th style="${PDF_TH}">Material</th><th style="${PDF_TH}">Location</th><th style="${PDF_TH}">Target Date</th></tr></thead><tbody>`;
+    allMats.forEach((m, i) => {
+      const bg = i%2===0 ? 'background:rgba(0,0,0,0.018)' : '';
+      const tgt = m.target_date ? pdfFmtDate(m.target_date) : (m.required_on_site_date ? pdfFmtDate(m.required_on_site_date) : '—');
+      matsHtml += `<tr style="border-bottom:1px solid #f5f2ee;${bg}">
+        <td style="padding:4px 8px;vertical-align:top;word-break:break-word">${m.material||'—'}</td>
+        <td style="padding:4px 8px;vertical-align:top;word-break:break-word">${m.area||'—'}</td>
+        <td style="padding:4px 8px;color:#5c5148;white-space:nowrap">${tgt}</td>
+      </tr>`;
+    });
+    matsHtml += '</tbody></table>';
+  } else {
+    matsHtml = '<div style="font-family:DM Mono,monospace;font-size:11px;color:#9a9188;padding:8px 0">No client actions required.</div>';
+  }
+
+  // ── Drawings Required — Architect / Consultant: Drawing | Issued By | Required By ──
+  const allDrawings = [...(dashData.drawings || [])].sort((a, b) => {
+    const da = parseSheetDate(a.required_by_date);
+    const db = parseSheetDate(b.required_by_date);
+    if (!da && !db) return 0;
+    if (!da) return 1;
+    if (!db) return -1;
+    return da - db;
+  });
+
+  let drwHtml = '<div class="modal-section-title" style="margin-top:20px">Drawings Required — Architect / Consultant</div>';
+  if (allDrawings.length) {
+    drwHtml += `<table style="${PDF_TBL}">${PDF_COL3}<thead><tr style="${PDF_HD}"><th style="${PDF_TH}">Drawing Name</th><th style="${PDF_TH}">Issued By</th><th style="${PDF_TH}">Required By</th></tr></thead><tbody>`;
+    allDrawings.forEach((drw, i) => {
+      const bg = i%2===0 ? 'background:rgba(0,0,0,0.018)' : '';
+      const nameCell = `${drw.drawing_name||'—'}${drw.drawing_type ? `<span style="display:block;font-size:9px;color:#9a9188;font-style:italic;margin-top:1px">${drw.drawing_type}</span>` : ''}`;
+      drwHtml += `<tr style="border-bottom:1px solid #f5f2ee;${bg}">
+        <td style="padding:4px 8px;vertical-align:top;word-break:break-word">${nameCell}</td>
+        <td style="padding:4px 8px;vertical-align:top;word-break:break-word">${drw.issued_by||'—'}</td>
+        <td style="padding:4px 8px;color:#5c5148;white-space:nowrap">${pdfFmtDate(drw.required_by_date)}</td>
+      </tr>`;
+    });
+    drwHtml += '</tbody></table>';
+  } else {
+    drwHtml += '<div style="font-family:DM Mono,monospace;font-size:11px;color:#9a9188">No drawings required.</div>';
+  }
+  document.getElementById('pdfMaterialsContainer').innerHTML = matsHtml + drwHtml;
+
+  // Hide procurement section (not used in kickoff)
+  document.getElementById('pdfProcurementTitle').style.display = 'none';
+  document.getElementById('pdfProcurementContainer').innerHTML = '';
+
+  document.getElementById('pdfFooter').textContent = `COVVA — ${pName}  ·  ${todayStr}  ·  Kickoff  ·  Confidential`;
   document.getElementById('pdfModal').classList.add('visible');
 }
 
