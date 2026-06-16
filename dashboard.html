@@ -1394,7 +1394,7 @@ function buildGantt(activities, dprs, today, startDate, endDate) {
         color: 'var(--amber)',
         title: mat.material_name || mat.material || mat.name || 'Material',
         rows: [
-          ['Area', mat.area || '—'],
+          ['Location', mat.area || '—'],
           ['Required On Site', fmtDate(mat.required_on_site_date)],
           ['Status', mat.status || '—'],
           ['Notes', mat.notes || '—']
@@ -2415,7 +2415,7 @@ function openPDFModal() {
     });
   let matsHtml;
   if (pendingMats.length) {
-    matsHtml = `<table style="${PDF_TBL}">${PDF_COL}<thead><tr style="${PDF_HD}"><th style="${PDF_TH}">Item</th><th style="${PDF_TH}">Area</th><th style="${PDF_TH}">Target Date</th><th style="${PDF_TH}">Status</th></tr></thead><tbody>`;
+    matsHtml = `<table style="${PDF_TBL}">${PDF_COL}<thead><tr style="${PDF_HD}"><th style="${PDF_TH}">Item</th><th style="${PDF_TH}">Location</th><th style="${PDF_TH}">Target Date</th><th style="${PDF_TH}">Status</th></tr></thead><tbody>`;
     pendingMats.forEach((m, i) => {
       const s   = getMatStatus(m);
       const sCol = s.cls.includes('red') ? '#a93226' : '#b8711f';
@@ -2464,7 +2464,7 @@ function openPDFModal() {
   const pdfProcCont  = document.getElementById('pdfProcurementContainer');
   if (procPdfMats.length) {
     pdfProcTitle.style.display = 'block';
-    let procHtml = `<table style="${PDF_TBL}">${PDF_COL}<thead><tr style="${PDF_HD}"><th style="${PDF_TH}">Material</th><th style="${PDF_TH}">Area</th><th style="${PDF_TH}">Required On Site</th><th style="${PDF_TH}">Status</th></tr></thead><tbody>`;
+    let procHtml = `<table style="${PDF_TBL}">${PDF_COL}<thead><tr style="${PDF_HD}"><th style="${PDF_TH}">Material</th><th style="${PDF_TH}">Location</th><th style="${PDF_TH}">Required On Site</th><th style="${PDF_TH}">Status</th></tr></thead><tbody>`;
     procPdfMats.forEach((m, i) => {
       const s    = getMatStatus(m);
       const sCol = s.cls.includes('red') ? '#a93226' : s.cls.includes('blue') ? '#2980b9' : s.cls.includes('green') ? '#1e8449' : '#b8711f';
@@ -2965,7 +2965,7 @@ function buildProcurementSection(materials) {
   const thead = document.createElement('thead');
   thead.innerHTML = `<tr>
     <th>Material</th>
-    <th>Area</th>
+    <th>Location</th>
     <th>Required On Site</th>
     <th>Qty</th>
     <th>Status</th>
