@@ -442,6 +442,7 @@ table.edit-table {
 .tab-actions-row {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
   margin-bottom: 10px;
 }
 
@@ -756,6 +757,7 @@ table.edit-table {
       <!-- Activities Tab -->
       <div class="tab-panel active" id="editTab-activities">
         <div class="tab-actions-row">
+          <button class="rollback-btn" onclick="syncCurrentEndToPlanned()" title="One-shot cleanup for kickoff projects: set Current End = Planned End on every row that's currently out of sync.">⇆ Sync Current End to Planned End</button>
           <button class="rollback-btn" onclick="openRollbackModal()">↩ Rollback Timeline</button>
         </div>
         <div class="table-wrap">
@@ -1258,6 +1260,68 @@ async function _autoSaveCascadedRows(tbody, fromTr, context) {
   }
   if (failed > 0) toast.update(`Saved ${saved} · ${failed} failed`, 'err');
   else toast.update(`Saved ${saved} row${saved===1?'':'s'}`, 'ok');
+  setTimeout(() => toast.close(), 2400);
+}
+
+// One-shot cleanup: for rows where Current End differs from Planned End,
+// snap Current End to Planned End and auto-save. Intended for kickoff
+// projects where earlier edits inadvertently created divergence.
+async function syncCurrentEndToPlanned() {
+  const tbody = document.getElementById('editActivityBody');
+  if (!tbody) return;
+  const projSel = document.getElementById('editProjectSelector');
+  if (!projSel || !projSel.value) {
+    alert('Select a project first.');
+    return;
+  }
+  const outOfSync = [];
+  for (const r of tbody.querySelectorAll('tr')) {
+    const plannedEl = r.querySelector('.act-end');
+    const currentEl = r.querySelector('.act-current-end');
+    if (!plannedEl || !currentEl) continue;
+    const p = plannedEl.value;
+    const c = currentEl.value;
+    if (!p) continue;            // no planned end → nothing to sync to
+    if (c === p) continue;       // already aligned
+    outOfSync.push({ r, plannedEl, currentEl });
+  }
+  if (!outOfSync.length) {
+    const toast = _showCascadeToast('All rows already in sync.', 'ok');
+    setTimeout(() => toast.close && toast.close(), 1800);
+    return;
+  }
+  const ok = confirm(
+    `Sync Current End to Planned End on ${outOfSync.length} row${outOfSync.length === 1 ? '' : 's'}?\n\n` +
+    `This clears the divergence on those rows so the dashboard stops showing slippage. ` +
+    `Rows that are already in sync are left alone.\n\n` +
+    `Use this only at project kickoff. Once the project is active, real slippage on ` +
+    `Current End is meaningful and should not be erased.`
+  );
+  if (!ok) return;
+  // Apply the sync in the UI + flip plan-mode back to true on each row
+  for (const { r, plannedEl, currentEl } of outOfSync) {
+    currentEl.value = plannedEl.value;
+    r.dataset.planMode = 'true';
+  }
+  // Auto-save sequentially with toast progress
+  const toast = _showCascadeToast(`Syncing ${outOfSync.length} row${outOfSync.length === 1 ? '' : 's'}…`);
+  let saved = 0, failed = 0;
+  for (const { r } of outOfSync) {
+    const nameInput = r.querySelector('input[type="text"]');
+    if (!nameInput || !nameInput.value.trim()) { failed++; continue; }
+    const btn = r.querySelector('.save-row-btn');
+    if (!btn) { failed++; continue; }
+    try {
+      await saveActivityRow(btn, 'edit');
+      if (btn.textContent.includes('Error')) failed++;
+      else saved++;
+    } catch (e) {
+      failed++;
+    }
+    toast.update(`Syncing… ${saved + failed} / ${outOfSync.length}`);
+  }
+  if (failed > 0) toast.update(`Synced ${saved} · ${failed} failed`, 'err');
+  else toast.update(`Synced ${saved} row${saved === 1 ? '' : 's'}`, 'ok');
   setTimeout(() => toast.close(), 2400);
 }
 
