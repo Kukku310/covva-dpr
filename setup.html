@@ -1297,6 +1297,17 @@ function _wireActivityRowHandlers(tr, context) {
   startEl.addEventListener('change', () => _onActivityStartChange(tr, context));
   endEl.addEventListener('change', () => _onActivityEndChange(tr, context));
   daysEl.addEventListener('change', () => _onActivityDaysChange(tr, context));
+
+  // Direct edit of Current End → row exits "plan mode" (user is recording
+  // a real divergence). Re-entering the planned value flips it back.
+  const curEndEl = tr.querySelector('.act-current-end');
+  if (curEndEl) {
+    curEndEl.addEventListener('change', () => {
+      const planned = endEl.value;
+      const current = curEndEl.value;
+      tr.dataset.planMode = (!current || current === planned) ? 'true' : 'false';
+    });
+  }
 }
 
 // ─── ADD ACTIVITY ROW ─────────────────────────────────────────
@@ -1326,12 +1337,18 @@ function addActivityRow(context, data) {
     const d = data || {};
     const originalActivity = d.activity || d['Activity'] || '';
     tr.dataset.originalActivity = originalActivity;
+    // Plan-mode = "planned and current end are still in sync"; if they ever
+    // diverge (real slip or early-finish recorded), the row exits plan mode
+    // and the cascade auto-save stops touching Current End.
+    const initPlannedEnd = toDateInput(d.planned_end||d['Planned End']||'');
+    const initCurrentEnd = toDateInput(d.current_end||d['Current End']||'');
+    tr.dataset.planMode = (!initCurrentEnd || initCurrentEnd === initPlannedEnd) ? 'true' : 'false';
     tr.innerHTML = `
       <td><input class="td-input" type="text" value="${esc(originalActivity)}" placeholder="Activity name"></td>
       <td><input class="td-input act-start" type="date" value="${toDateInput(d.planned_start||d['Planned Start']||'')}"></td>
       <td><input class="td-input td-days act-days" type="number" min="1" placeholder="—"></td>
-      <td><input class="td-input act-end" type="date" value="${toDateInput(d.planned_end||d['Planned End']||'')}"></td>
-      <td><input class="td-input act-current-end" type="date" value="${toDateInput(d.current_end||d['Current End']||'')}"></td>
+      <td><input class="td-input act-end" type="date" value="${initPlannedEnd}"></td>
+      <td><input class="td-input act-current-end" type="date" value="${initCurrentEnd}"></td>
       <td>${activityStatusSelect(d.status||d['Status']||'Not Started')}</td>
       <td><button class="override-chip${isOverrideOn(d.manual_override||d['Manual Override'])?' active':''}" onclick="toggleOverride(this)" title="Lock this row from automatic timeline updates">${isOverrideOn(d.manual_override||d['Manual Override'])?'OVERRIDDEN':'Override'}</button></td>
       <td style="display:flex;gap:4px;align-items:center;padding:5px 4px">
@@ -1593,7 +1610,18 @@ async function saveActivityRow(btn, context) {
 
   // inputs: 0=name, 1=planned_start, 2=days, 3=planned_end, 4=current_end, 5=status
   const plannedEndVal = inputs[3].value;
-  const currentEndVal = inputs[4].value || plannedEndVal; // default to Planned End if empty
+  // Plan-mode rows (planned and current end were in sync at load and the
+  // user hasn't introduced a divergence) keep Current End locked to
+  // Planned End, so kickoff edits don't fabricate slippage. Once a row
+  // has real divergence its planMode flag is false and we respect the
+  // user's Current End value.
+  let currentEndVal;
+  if (tr.dataset.planMode === 'true') {
+    currentEndVal = plannedEndVal;
+    if (inputs[4]) inputs[4].value = plannedEndVal; // reflect in UI
+  } else {
+    currentEndVal = inputs[4].value || plannedEndVal; // default to Planned End if empty
+  }
 
   const rowData = {
     action: 'saveProjectData',
