@@ -587,6 +587,27 @@ table.edit-table {
   color: var(--amber);
   font-weight: 600;
 }
+
+/* ── CASCADE AUTO-SAVE TOAST ── */
+.cascade-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--surface);
+  border: 1px solid var(--amber-dim);
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  z-index: 300;
+  transition: opacity 0.25s;
+  max-width: 320px;
+}
+.cascade-toast.err { border-color: #a93226; color: #a93226; }
+.cascade-toast.ok  { border-color: var(--amber); color: var(--amber); }
+.cascade-toast.fade { opacity: 0; }
 </style>
 </head>
 <body>
@@ -1090,6 +1111,7 @@ async function _onActivityStartChange(tr, context) {
   _sortActivityBody(tbody);
   _flashRow(tr);
   _recomputeProjectSummary(context);
+  await _autoSaveRow(tr, context);
 }
 
 async function _onActivityEndChange(tr, context) {
@@ -1106,12 +1128,15 @@ async function _onActivityEndChange(tr, context) {
   }
   endEl.dataset.prev = newVal;
   _recalcRowDays(tr);
+  let cascaded = false;
   const oldEnd = _parseDateInput(prev);
   if (oldEnd && newEnd) {
     const delta = Math.round((newEnd - oldEnd) / 86400000);
-    await _maybeCascade(tr, context, delta);
+    cascaded = await _maybeCascade(tr, context, delta);
   }
   _recomputeProjectSummary(context);
+  if (cascaded) await _autoSaveCascadedRows(tr.parentElement, tr, context);
+  else await _autoSaveRow(tr, context);
 }
 
 async function _onActivityDaysChange(tr, context) {
@@ -1131,18 +1156,21 @@ async function _onActivityDaysChange(tr, context) {
   endEl.value = _formatDateInput(newEnd);
   endEl.dataset.prev = endEl.value;
   daysEl.dataset.prev = String(days);
+  let cascaded = false;
   if (oldEnd) {
     const delta = Math.round((newEnd - oldEnd) / 86400000);
-    await _maybeCascade(tr, context, delta);
+    cascaded = await _maybeCascade(tr, context, delta);
   }
   _recomputeProjectSummary(context);
+  if (cascaded) await _autoSaveCascadedRows(tr.parentElement, tr, context);
+  else await _autoSaveRow(tr, context);
 }
 
 async function _maybeCascade(tr, context, delta) {
-  if (!delta) return;
+  if (!delta) return false;
   const tbody = tr.parentElement;
   const downstream = _countDownstream(tbody, tr);
-  if (downstream === 0) return;
+  if (downstream === 0) return false;
   let proceed;
   if (_isCascadeSilent(context)) {
     proceed = true;
@@ -1152,6 +1180,85 @@ async function _maybeCascade(tr, context, delta) {
     proceed = ans.ok;
   }
   if (proceed) _cascadeShift(tbody, tr, delta);
+  return proceed;
+}
+
+// ─── CASCADE AUTO-SAVE ──────────────────────────────────────────
+// In edit context only, the row the user just edited plus any rows
+// the cascade shifted are sent to the Sheet via the existing per-row
+// save endpoint, so the dashboard and PDFs reflect the new dates
+// without a manual Save click on each row.
+
+function _showCascadeToast(msg) {
+  let el = document.getElementById('_cascadeToast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = '_cascadeToast';
+    el.className = 'cascade-toast';
+    document.body.appendChild(el);
+  }
+  el.classList.remove('fade', 'err', 'ok');
+  el.textContent = msg;
+  el.style.display = 'block';
+  return {
+    update(text, kind) {
+      el.textContent = text;
+      el.classList.remove('err', 'ok');
+      if (kind === 'err') el.classList.add('err');
+      else if (kind === 'ok') el.classList.add('ok');
+    },
+    close() {
+      el.classList.add('fade');
+      setTimeout(() => { el.style.display = 'none'; el.classList.remove('fade'); }, 280);
+    }
+  };
+}
+
+function _shouldAutoSave(tr, context) {
+  if (context !== 'edit') return false;
+  const projSel = document.getElementById('editProjectSelector');
+  if (!projSel || !projSel.value) return false;
+  const nameInput = tr.querySelector('input[type="text"]');
+  if (!nameInput || !nameInput.value.trim()) return false;
+  return !!tr.querySelector('.save-row-btn');
+}
+
+async function _autoSaveRow(tr, context) {
+  if (!_shouldAutoSave(tr, context)) return;
+  const btn = tr.querySelector('.save-row-btn');
+  const toast = _showCascadeToast('Saving row…');
+  await saveActivityRow(btn, context);
+  if (btn.textContent.includes('Error')) toast.update('Save failed', 'err');
+  else toast.update('Saved', 'ok');
+  setTimeout(() => toast.close(), 1800);
+}
+
+async function _autoSaveCascadedRows(tbody, fromTr, context) {
+  if (context !== 'edit') return;
+  const rows = [];
+  let after = false;
+  for (const r of tbody.querySelectorAll('tr')) {
+    if (r === fromTr || after) rows.push(r);
+    if (r === fromTr) after = true;
+  }
+  const saveable = rows.filter(r => _shouldAutoSave(r, context));
+  if (!saveable.length) return;
+  const toast = _showCascadeToast(`Saving ${saveable.length} row${saveable.length===1?'':'s'}…`);
+  let saved = 0, failed = 0;
+  for (const r of saveable) {
+    const btn = r.querySelector('.save-row-btn');
+    try {
+      await saveActivityRow(btn, context);
+      if (btn.textContent.includes('Error')) failed++;
+      else saved++;
+    } catch (e) {
+      failed++;
+    }
+    toast.update(`Saving… ${saved + failed} / ${saveable.length}`);
+  }
+  if (failed > 0) toast.update(`Saved ${saved} · ${failed} failed`, 'err');
+  else toast.update(`Saved ${saved} row${saved===1?'':'s'}`, 'ok');
+  setTimeout(() => toast.close(), 2400);
 }
 
 function _recomputeProjectSummary(context) {
