@@ -525,6 +525,36 @@ table.edit-table {
 
 /* ── WARNING INLINE-MSG TYPE ── */
 .inline-msg.warning { display: block; color: var(--amber); background: var(--amber-glow); border: 1px solid var(--amber-dim); }
+
+/* ── DAYS COLUMN ── */
+.edit-table .td-days {
+  width: 64px;
+  min-width: 56px;
+  text-align: center;
+  -moz-appearance: textfield;
+}
+.edit-table .td-days::-webkit-outer-spin-button,
+.edit-table .td-days::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* ── ROW FLASH (after auto-sort) ── */
+@keyframes rowFlash {
+  0%   { background-color: rgba(245, 158, 11, 0.45); }
+  100% { background-color: transparent; }
+}
+.edit-table tr.row-flash td { animation: rowFlash 1.6s ease-out; }
+
+/* ── CASCADE MODAL EXTRAS ── */
+.cascade-dontask {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 16px;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--dim);
+  cursor: pointer;
+}
+.cascade-dontask input { cursor: pointer; }
 </style>
 </head>
 <body>
@@ -578,6 +608,7 @@ table.edit-table {
           <tr>
             <th>Activity Name</th>
             <th>Start Date</th>
+            <th>Days</th>
             <th>End Date</th>
             <th>Status</th>
             <th>Notes</th>
@@ -673,6 +704,7 @@ table.edit-table {
               <tr>
                 <th>Activity Name</th>
                 <th>Planned Start</th>
+                <th>Days</th>
                 <th>Planned End</th>
                 <th>Current End</th>
                 <th>Status</th>
@@ -765,6 +797,22 @@ table.edit-table {
   </div>
 </div>
 
+<!-- ── CASCADE-SHIFT MODAL ── -->
+<div class="modal-overlay" id="cascadeModal">
+  <div class="modal-panel">
+    <div class="modal-title">Shift Downstream Activities?</div>
+    <div class="modal-subtitle" id="cascadeModalMsg">…</div>
+    <div class="modal-warning">⚠ Every activity below this row will move by the same number of days. Each activity's own duration is preserved.</div>
+    <label class="cascade-dontask">
+      <input type="checkbox" id="cascadeDontAsk"> Don't ask again for this project
+    </label>
+    <div class="modal-actions">
+      <button class="cancel-btn" id="cascadeNoBtn">No, leave them</button>
+      <button class="confirm-btn" id="cascadeYesBtn">Yes, shift</button>
+    </div>
+  </div>
+</div>
+
 <div class="footer">COVVA SITE INTELLIGENCE</div>
 
 <script>
@@ -822,6 +870,257 @@ function addDrawingTypeFromInput(btn) {
   setTimeout(() => btn.classList.remove('saved'), 1400);
 }
 
+// ─── ACTIVITY DATE LINKAGE: helpers ────────────────────────────
+// Inclusive duration model: a 1-day activity has start == end → 1 day
+// "Cascade" prompt shifts every row below the changed row by the same delta
+// "Auto-sort" reorders rows by Planned Start whenever a Start date changes
+// "Auto-fill" sets a newly-added row's Start to max(existing End) + 1
+
+const _cascadeSilent = { new: false, edit: {} };
+function _isCascadeSilent(context) {
+  if (context === 'new') return _cascadeSilent.new;
+  const proj = (document.getElementById('editProjectSelector') || {}).value || '_';
+  return !!_cascadeSilent.edit[proj];
+}
+function _setCascadeSilent(context) {
+  if (context === 'new') { _cascadeSilent.new = true; return; }
+  const proj = (document.getElementById('editProjectSelector') || {}).value || '_';
+  _cascadeSilent.edit[proj] = true;
+}
+
+function _parseDateInput(s) {
+  if (!s) return null;
+  const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  const d = new Date(+m[1], +m[2] - 1, +m[3]);
+  return isNaN(d.getTime()) ? null : d;
+}
+function _formatDateInput(d) {
+  if (!d) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+function _addDays(d, n) {
+  const r = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  r.setDate(r.getDate() + n);
+  return r;
+}
+function _daysInclusive(start, end) {
+  return Math.round((end - start) / 86400000) + 1;
+}
+
+function _recalcRowDays(tr) {
+  const startEl = tr.querySelector('.act-start');
+  const endEl = tr.querySelector('.act-end');
+  const daysEl = tr.querySelector('.act-days');
+  if (!startEl || !endEl || !daysEl) return;
+  const s = _parseDateInput(startEl.value);
+  const e = _parseDateInput(endEl.value);
+  if (s && e && e >= s) daysEl.value = _daysInclusive(s, e);
+  else daysEl.value = '';
+  daysEl.dataset.prev = daysEl.value;
+}
+
+function _flashRow(tr) {
+  tr.classList.remove('row-flash');
+  void tr.offsetWidth;
+  tr.classList.add('row-flash');
+  setTimeout(() => tr.classList.remove('row-flash'), 1700);
+}
+
+function _sortActivityBody(tbody) {
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+  rows.sort((a, b) => {
+    const sa = _parseDateInput((a.querySelector('.act-start') || {}).value);
+    const sb = _parseDateInput((b.querySelector('.act-start') || {}).value);
+    if (sa && sb) return sa - sb;
+    if (sa && !sb) return -1;
+    if (!sa && sb) return 1;
+    return 0;
+  });
+  rows.forEach(r => tbody.appendChild(r));
+}
+
+function _countDownstream(tbody, fromTr) {
+  let after = false, count = 0;
+  for (const r of tbody.querySelectorAll('tr')) {
+    if (after) {
+      const s = (r.querySelector('.act-start') || {}).value;
+      const e = (r.querySelector('.act-end') || {}).value;
+      if (s || e) count++;
+    }
+    if (r === fromTr) after = true;
+  }
+  return count;
+}
+
+function _cascadeShift(tbody, fromTr, deltaDays) {
+  let after = false;
+  for (const r of tbody.querySelectorAll('tr')) {
+    if (after) {
+      const startEl = r.querySelector('.act-start');
+      const endEl = r.querySelector('.act-end');
+      const curEndEl = r.querySelector('.act-current-end');
+      if (startEl && startEl.value) {
+        const ns = _addDays(_parseDateInput(startEl.value), deltaDays);
+        startEl.value = _formatDateInput(ns);
+        startEl.dataset.prev = startEl.value;
+      }
+      if (endEl && endEl.value) {
+        const ne = _addDays(_parseDateInput(endEl.value), deltaDays);
+        endEl.value = _formatDateInput(ne);
+        endEl.dataset.prev = endEl.value;
+      }
+      if (curEndEl && curEndEl.value) {
+        const nc = _addDays(_parseDateInput(curEndEl.value), deltaDays);
+        curEndEl.value = _formatDateInput(nc);
+      }
+      _recalcRowDays(r);
+    }
+    if (r === fromTr) after = true;
+  }
+}
+
+function _askCascade(deltaDays, downstreamCount) {
+  return new Promise(resolve => {
+    const modal = document.getElementById('cascadeModal');
+    const msg = document.getElementById('cascadeModalMsg');
+    const dontAsk = document.getElementById('cascadeDontAsk');
+    const yesBtn = document.getElementById('cascadeYesBtn');
+    const noBtn = document.getElementById('cascadeNoBtn');
+    const dir = deltaDays > 0 ? 'forward' : 'back';
+    const abs = Math.abs(deltaDays);
+    msg.textContent = `Shift the ${downstreamCount} following activit${downstreamCount === 1 ? 'y' : 'ies'} ${dir} by ${abs} day${abs === 1 ? '' : 's'}?`;
+    dontAsk.checked = false;
+    modal.classList.add('open');
+    function cleanup() {
+      modal.classList.remove('open');
+      yesBtn.removeEventListener('click', onYes);
+      noBtn.removeEventListener('click', onNo);
+    }
+    function onYes() { const silent = dontAsk.checked; cleanup(); resolve({ ok: true, silent }); }
+    function onNo()  { const silent = dontAsk.checked; cleanup(); resolve({ ok: false, silent }); }
+    yesBtn.addEventListener('click', onYes);
+    noBtn.addEventListener('click', onNo);
+  });
+}
+
+function _autoFillNewRowStart(tbody, newTr) {
+  const startEl = newTr.querySelector('.act-start');
+  if (!startEl || startEl.value) return;
+  let maxEnd = null;
+  for (const r of tbody.querySelectorAll('tr')) {
+    if (r === newTr) continue;
+    const endEl = r.querySelector('.act-end');
+    if (endEl && endEl.value) {
+      const e = _parseDateInput(endEl.value);
+      if (e && (!maxEnd || e > maxEnd)) maxEnd = e;
+    }
+  }
+  if (maxEnd) {
+    startEl.value = _formatDateInput(_addDays(maxEnd, 1));
+    startEl.dataset.prev = startEl.value;
+  }
+}
+
+async function _onActivityStartChange(tr, context) {
+  const startEl = tr.querySelector('.act-start');
+  const endEl = tr.querySelector('.act-end');
+  const daysEl = tr.querySelector('.act-days');
+  const newStart = _parseDateInput(startEl.value);
+  const days = parseInt(daysEl.value, 10);
+  if (newStart && days >= 1) {
+    // Preserve duration: shift End so Days stays the same
+    const newEnd = _addDays(newStart, days - 1);
+    endEl.value = _formatDateInput(newEnd);
+    endEl.dataset.prev = endEl.value;
+  } else {
+    _recalcRowDays(tr);
+  }
+  startEl.dataset.prev = startEl.value;
+  const tbody = tr.parentElement;
+  _sortActivityBody(tbody);
+  _flashRow(tr);
+}
+
+async function _onActivityEndChange(tr, context) {
+  const endEl = tr.querySelector('.act-end');
+  const startEl = tr.querySelector('.act-start');
+  const prev = endEl.dataset.prev || '';
+  const newVal = endEl.value;
+  const newEnd = _parseDateInput(newVal);
+  const startD = _parseDateInput(startEl.value);
+  if (newEnd && startD && newEnd < startD) {
+    alert('End date cannot be before start date.');
+    endEl.value = prev;
+    return;
+  }
+  endEl.dataset.prev = newVal;
+  _recalcRowDays(tr);
+  const oldEnd = _parseDateInput(prev);
+  if (oldEnd && newEnd) {
+    const delta = Math.round((newEnd - oldEnd) / 86400000);
+    await _maybeCascade(tr, context, delta);
+  }
+}
+
+async function _onActivityDaysChange(tr, context) {
+  const daysEl = tr.querySelector('.act-days');
+  const endEl = tr.querySelector('.act-end');
+  const startEl = tr.querySelector('.act-start');
+  const days = parseInt(daysEl.value, 10);
+  if (!days || days < 1) { daysEl.value = daysEl.dataset.prev || ''; return; }
+  const startD = _parseDateInput(startEl.value);
+  if (!startD) {
+    alert('Set Start Date first, then enter Days.');
+    daysEl.value = daysEl.dataset.prev || '';
+    return;
+  }
+  const newEnd = _addDays(startD, days - 1);
+  const oldEnd = _parseDateInput(endEl.value);
+  endEl.value = _formatDateInput(newEnd);
+  endEl.dataset.prev = endEl.value;
+  daysEl.dataset.prev = String(days);
+  if (oldEnd) {
+    const delta = Math.round((newEnd - oldEnd) / 86400000);
+    await _maybeCascade(tr, context, delta);
+  }
+}
+
+async function _maybeCascade(tr, context, delta) {
+  if (!delta) return;
+  const tbody = tr.parentElement;
+  const downstream = _countDownstream(tbody, tr);
+  if (downstream === 0) return;
+  let proceed;
+  if (_isCascadeSilent(context)) {
+    proceed = true;
+  } else {
+    const ans = await _askCascade(delta, downstream);
+    if (ans.silent) _setCascadeSilent(context);
+    proceed = ans.ok;
+  }
+  if (proceed) _cascadeShift(tbody, tr, delta);
+}
+
+function _wireActivityRowHandlers(tr, context) {
+  const startEl = tr.querySelector('.act-start');
+  const endEl = tr.querySelector('.act-end');
+  const daysEl = tr.querySelector('.act-days');
+  if (!startEl || !endEl || !daysEl) return;
+  startEl.dataset.prev = startEl.value || '';
+  endEl.dataset.prev = endEl.value || '';
+  daysEl.dataset.prev = daysEl.value || '';
+  [startEl, endEl, daysEl].forEach(el => {
+    el.addEventListener('focus', () => { el.dataset.prev = el.value; });
+  });
+  startEl.addEventListener('change', () => _onActivityStartChange(tr, context));
+  endEl.addEventListener('change', () => _onActivityEndChange(tr, context));
+  daysEl.addEventListener('change', () => _onActivityDaysChange(tr, context));
+}
+
 // ─── ADD ACTIVITY ROW ─────────────────────────────────────────
 function normalizeStatusKey(s) { return (s||'').toLowerCase().replace(/[\s_]+/g,''); }
 function activityStatusSelect(val) {
@@ -851,9 +1150,10 @@ function addActivityRow(context, data) {
     tr.dataset.originalActivity = originalActivity;
     tr.innerHTML = `
       <td><input class="td-input" type="text" value="${esc(originalActivity)}" placeholder="Activity name"></td>
-      <td><input class="td-input" type="date" value="${toDateInput(d.planned_start||d['Planned Start']||'')}"></td>
-      <td><input class="td-input" type="date" value="${toDateInput(d.planned_end||d['Planned End']||'')}"></td>
-      <td><input class="td-input" type="date" value="${toDateInput(d.current_end||d['Current End']||'')}"></td>
+      <td><input class="td-input act-start" type="date" value="${toDateInput(d.planned_start||d['Planned Start']||'')}"></td>
+      <td><input class="td-input td-days act-days" type="number" min="1" placeholder="—"></td>
+      <td><input class="td-input act-end" type="date" value="${toDateInput(d.planned_end||d['Planned End']||'')}"></td>
+      <td><input class="td-input act-current-end" type="date" value="${toDateInput(d.current_end||d['Current End']||'')}"></td>
       <td>${activityStatusSelect(d.status||d['Status']||'Not Started')}</td>
       <td><button class="override-chip${isOverrideOn(d.manual_override||d['Manual Override'])?' active':''}" onclick="toggleOverride(this)" title="Lock this row from automatic timeline updates">${isOverrideOn(d.manual_override||d['Manual Override'])?'OVERRIDDEN':'Override'}</button></td>
       <td style="display:flex;gap:4px;align-items:center;padding:5px 4px">
@@ -864,8 +1164,9 @@ function addActivityRow(context, data) {
   } else {
     tr.innerHTML = `
       <td><input class="td-input" type="text" placeholder="Activity name"></td>
-      <td><input class="td-input" type="date"></td>
-      <td><input class="td-input" type="date"></td>
+      <td><input class="td-input act-start" type="date"></td>
+      <td><input class="td-input td-days act-days" type="number" min="1" placeholder="—"></td>
+      <td><input class="td-input act-end" type="date"></td>
       <td>${activityStatusSelect('Not Started')}</td>
       <td><input class="td-input" type="text" placeholder="Notes"></td>
       <td><button class="td-del" onclick="this.closest('tr').remove()">✕</button></td>
@@ -873,6 +1174,13 @@ function addActivityRow(context, data) {
   }
 
   tbody.appendChild(tr);
+
+  // Auto-fill Start from previous max End when this is a freshly-added empty row
+  if (!data) _autoFillNewRowStart(tbody, tr);
+  // Populate Days from Start+End if both are set (initial load case)
+  _recalcRowDays(tr);
+  // Wire up linkage handlers
+  _wireActivityRowHandlers(tr, context);
 }
 
 function addMaterialRow(context, data) {
@@ -975,7 +1283,8 @@ function collectNewActivities() {
   const rows = document.querySelectorAll('#newActivityBody tr');
   return [...rows].map(tr => {
     const cells = tr.querySelectorAll('input, select');
-    return { activity: cells[0].value, planned_start: cells[1].value, planned_end: cells[2].value, status: cells[3].value, notes: cells[4].value };
+    // cells: 0=name, 1=start, 2=days, 3=end, 4=status, 5=notes
+    return { activity: cells[0].value, planned_start: cells[1].value, planned_end: cells[3].value, status: cells[4].value, notes: cells[5].value };
   }).filter(r => r.activity.trim());
 }
 
@@ -1101,8 +1410,9 @@ async function saveActivityRow(btn, context) {
     return;
   }
 
-  const plannedEndVal = inputs[2].value;
-  const currentEndVal = inputs[3].value || plannedEndVal; // default to Planned End if empty
+  // inputs: 0=name, 1=planned_start, 2=days, 3=planned_end, 4=current_end, 5=status
+  const plannedEndVal = inputs[3].value;
+  const currentEndVal = inputs[4].value || plannedEndVal; // default to Planned End if empty
 
   const rowData = {
     action: 'saveProjectData',
@@ -1113,7 +1423,7 @@ async function saveActivityRow(btn, context) {
     planned_start: inputs[1].value,
     planned_end: plannedEndVal,
     current_end: currentEndVal,
-    status: inputs[4].value,
+    status: inputs[5].value,
     manual_override: overrideChip ? overrideChip.classList.contains('active') : false
   };
 
