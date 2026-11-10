@@ -957,12 +957,24 @@ function _setCascadeSilent(context) {
   _cascadeSilent.edit[proj] = true;
 }
 
+// Accepts only plausible project years. While someone types the year into a
+// date field, the browser fires "change" on every digit with a partial year
+// (0002 → 0020 → 0202 → 2026); those must be ignored, not acted on. Also,
+// new Date(20, …) silently means 1920, which is how "1920" dates appeared.
+const _MIN_YEAR = 2000, _MAX_YEAR = 2099;
 function _parseDateInput(s) {
   if (!s) return null;
   const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!m) return null;
-  const d = new Date(+m[1], +m[2] - 1, +m[3]);
+  const y = +m[1];
+  if (y < _MIN_YEAR || y > _MAX_YEAR) return null;
+  const d = new Date(y, +m[2] - 1, +m[3]);
   return isNaN(d.getTime()) ? null : d;
+}
+// True when the field has a value but it isn't a usable date yet
+// (e.g. year still being typed). Handlers should wait in that case.
+function _isIncompleteDate(el) {
+  return !!(el && el.value && !_parseDateInput(el.value));
 }
 function _formatDateInput(d) {
   if (!d) return '';
@@ -1032,17 +1044,17 @@ function _cascadeShift(tbody, fromTr, deltaDays) {
       const startEl = r.querySelector('.act-start');
       const endEl = r.querySelector('.act-end');
       const curEndEl = r.querySelector('.act-current-end');
-      if (startEl && startEl.value) {
+      if (startEl && _parseDateInput(startEl.value)) {
         const ns = _addDays(_parseDateInput(startEl.value), deltaDays);
         startEl.value = _formatDateInput(ns);
         startEl.dataset.prev = startEl.value;
       }
-      if (endEl && endEl.value) {
+      if (endEl && _parseDateInput(endEl.value)) {
         const ne = _addDays(_parseDateInput(endEl.value), deltaDays);
         endEl.value = _formatDateInput(ne);
         endEl.dataset.prev = endEl.value;
       }
-      if (curEndEl && curEndEl.value) {
+      if (curEndEl && _parseDateInput(curEndEl.value)) {
         const nc = _addDays(_parseDateInput(curEndEl.value), deltaDays);
         curEndEl.value = _formatDateInput(nc);
       }
@@ -1098,6 +1110,7 @@ async function _onActivityStartChange(tr, context) {
   const startEl = tr.querySelector('.act-start');
   const endEl = tr.querySelector('.act-end');
   const daysEl = tr.querySelector('.act-days');
+  if (_isIncompleteDate(startEl)) return; // year still being typed
   const newStart = _parseDateInput(startEl.value);
   const days = parseInt(daysEl.value, 10);
   if (newStart && days >= 1) {
@@ -1119,6 +1132,7 @@ async function _onActivityStartChange(tr, context) {
 async function _onActivityEndChange(tr, context) {
   const endEl = tr.querySelector('.act-end');
   const startEl = tr.querySelector('.act-start');
+  if (_isIncompleteDate(endEl)) return; // year still being typed
   const prev = endEl.dataset.prev || '';
   const newVal = endEl.value;
   const newEnd = _parseDateInput(newVal);
@@ -1355,6 +1369,12 @@ function _wireActivityRowHandlers(tr, context) {
   startEl.dataset.prev = startEl.value || '';
   endEl.dataset.prev = endEl.value || '';
   daysEl.dataset.prev = daysEl.value || '';
+  // Cap the year segment to 4 digits / sane range (Chrome otherwise allows 6-digit years)
+  [startEl, endEl, tr.querySelector('.act-current-end')].forEach(el => {
+    if (!el) return;
+    el.min = `${_MIN_YEAR}-01-01`;
+    el.max = `${_MAX_YEAR}-12-31`;
+  });
   [startEl, endEl, daysEl].forEach(el => {
     el.addEventListener('focus', () => { el.dataset.prev = el.value; });
   });
