@@ -781,13 +781,18 @@ function upsertActivityRow(sheet, act, now) {
   const overrideStamp = act.manual_override ? (existingOverrideStamp || now) : '';
 
   // If current_end is empty, default to planned_end — never mandatory at row creation
-  const resolvedPlannedEnd = act.planned_end || (foundRow > 0 ? data[foundRow-1][2] : '');
-  const resolvedCurrentEnd = act.current_end || (foundRow > 0 ? data[foundRow-1][3] : '') || resolvedPlannedEnd;
+  // planned_end_open = user deliberately left Planned End blank (open-ended
+  // activity, e.g. third-party vendor work) → store blanks, don't keep old dates.
+  const openEnded = act.planned_end_open === true && !act.planned_end;
+  const resolvedPlannedEnd = openEnded ? '' : (act.planned_end || (foundRow > 0 ? data[foundRow-1][2] : ''));
+  const resolvedCurrentEnd = openEnded
+    ? (act.current_end || '')
+    : (act.current_end || (foundRow > 0 ? data[foundRow-1][3] : '') || resolvedPlannedEnd);
   const plannedEndDate = normalizeTimelineDate(resolvedPlannedEnd);
   const currentEndDate = normalizeTimelineDate(resolvedCurrentEnd);
-  const manualSlippage = plannedEndDate && currentEndDate
+  const manualSlippage = openEnded ? 0 : (plannedEndDate && currentEndDate
     ? Math.max(0, daysBetweenTimelineDates(plannedEndDate, currentEndDate))
-    : (foundRow > 0 ? data[foundRow-1][TIMELINE_COL.SLIPPAGE] || 0 : 0);
+    : (foundRow > 0 ? data[foundRow-1][TIMELINE_COL.SLIPPAGE] || 0 : 0));
 
   if (foundRow > 0) {
     sheet.getRange(foundRow, 1, 1, TIMELINE_HEADERS.length).setValues([[
