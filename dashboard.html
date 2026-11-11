@@ -1821,8 +1821,8 @@ function buildMaterialsSection(materials) {
     : materials;
 
   const filtered = [...rawFiltered].sort((a, b) => {
-    const da = parseSheetDate(a.target_date);
-    const db = parseSheetDate(b.target_date);
+    const da = parseSheetDate(a.target_date || a.required_on_site_date);
+    const db = parseSheetDate(b.target_date || b.required_on_site_date);
     if (!da && !db) return 0;
     if (!da) return 1;
     if (!db) return -1;
@@ -2420,8 +2420,8 @@ function openPDFModal() {
   const pendingMats = (dashData.materials || [])
     .filter(m => !['received','good'].includes((m.status||m.condition||'').toLowerCase()))
     .sort((a, b) => {
-      const da = parseSheetDate(a.target_date);
-      const db = parseSheetDate(b.target_date);
+      const da = parseSheetDate(a.target_date || a.required_on_site_date);
+      const db = parseSheetDate(b.target_date || b.required_on_site_date);
       if (!da && !db) return 0;
       if (!da) return 1;
       if (!db) return -1;
