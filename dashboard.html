@@ -881,7 +881,7 @@ body {
 
 <div class="pdf-bar" id="pdfBar">
   <span class="pdf-bar-text">Client View — showing public data only</span>
-  <button class="export-btn" onclick="openKickoffPDFModal()">⬇ Export Kickoff PDF</button>
+  <button class="export-btn" onclick="openKickoffPDFModal()">⬇ Export Schedule PDF</button>
   <button class="export-btn" onclick="openPDFModal()">⬇ Export PDF</button>
 </div>
 
@@ -2495,7 +2495,7 @@ function openKickoffPDFModal() {
   const pName = dashData.project || currentProject;
 
   document.getElementById('pdfModalMeta').innerHTML =
-    `<strong>${pName}</strong><span style="font-weight:400;font-size:11px;color:#9a9188">${todayStr} · Kickoff</span>`;
+    `<strong>${pName}</strong><span style="font-weight:400;font-size:11px;color:#9a9188">${todayStr} · Work Schedule</span>`;
 
   const PDF_M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   function pdfFmtDate(val) {
@@ -2512,9 +2512,10 @@ function openKickoffPDFModal() {
   if (matsTitle) matsTitle.textContent = 'Required Client Actions';
 
   // ── Activity Schedule: Activity | Planned Start | Planned End | Days ──
-  const ACT_TH = `text-align:left;padding:5px 8px;color:#5c5148;font-weight:500;font-size:10px;white-space:nowrap`;
-  let ganttHtml = `<table style="width:100%;border-collapse:collapse;table-layout:fixed;font-family:'DM Mono',monospace;font-size:12px;margin-top:4px">`;
-  ganttHtml += `<colgroup><col style="width:40%"><col style="width:22%"><col style="width:22%"><col style="width:16%"></colgroup>`;
+  // Auto layout (not fixed %): date columns size to their content and can
+  // never run into each other on narrow screens; the Activity column wraps.
+  const ACT_TH = `text-align:left;padding:5px 6px;color:#5c5148;font-weight:500;font-size:10px;vertical-align:bottom`;
+  let ganttHtml = `<table style="width:100%;border-collapse:collapse;table-layout:auto;font-family:'DM Mono',monospace;font-size:12px;margin-top:4px">`;
   ganttHtml += `<thead><tr style="border-bottom:1px solid #e0dbd3;background:#f0ece6">`;
   ganttHtml += `<th style="${ACT_TH}">Activity</th>`;
   ganttHtml += `<th style="${ACT_TH}">Planned Start</th>`;
@@ -2540,10 +2541,10 @@ function openKickoffPDFModal() {
     if (ps && (!projStart || ps < projStart)) projStart = ps;
     if (pe && (!projEnd || pe > projEnd)) projEnd = pe;
     ganttHtml += `<tr style="border-bottom:1px solid #f0ece6;${rowBg}">
-      <td style="padding:4px 8px;word-break:break-word">${a.activity||'—'}</td>
-      <td style="padding:4px 8px;color:#5c5148;white-space:nowrap;font-size:11px">${pdfFmtDate(a.planned_start)}</td>
-      <td style="padding:4px 8px;color:#5c5148;white-space:nowrap;font-size:11px">${pdfFmtDate(a.planned_end)}</td>
-      <td style="padding:4px 8px;color:#5c5148;text-align:center;font-size:11px">${days}</td>
+      <td style="padding:4px 8px;overflow-wrap:break-word">${a.activity||'—'}</td>
+      <td style="padding:4px 10px 4px 6px;color:#5c5148;white-space:nowrap;font-size:11px">${pdfFmtDate(a.planned_start)}</td>
+      <td style="padding:4px 10px 4px 6px;color:#5c5148;white-space:nowrap;font-size:11px">${pdfFmtDate(a.planned_end)}</td>
+      <td style="padding:4px 6px;color:#5c5148;text-align:center;font-size:11px">${days}</td>
     </tr>`;
   });
 
@@ -2554,9 +2555,9 @@ function openKickoffPDFModal() {
     const fmtE = String(projEnd.getDate()).padStart(2,'0') + ' ' + PDF_M[projEnd.getMonth()] + ' ' + projEnd.getFullYear();
     ganttHtml += `<tr style="background:#ebe6dc;border-top:2px solid #c9c3b7">
       <td style="padding:6px 8px;color:#3a342d;font-weight:600">Project</td>
-      <td style="padding:6px 8px;color:#3a342d;font-weight:600;white-space:nowrap;font-size:11px">${fmtS}</td>
-      <td style="padding:6px 8px;color:#3a342d;font-weight:600;white-space:nowrap;font-size:11px">${fmtE}</td>
-      <td style="padding:6px 8px;color:#3a342d;font-weight:600;text-align:center;font-size:11px">${totalDays}</td>
+      <td style="padding:6px 10px 6px 6px;color:#3a342d;font-weight:600;white-space:nowrap;font-size:11px">${fmtS}</td>
+      <td style="padding:6px 10px 6px 6px;color:#3a342d;font-weight:600;white-space:nowrap;font-size:11px">${fmtE}</td>
+      <td style="padding:6px 6px;color:#3a342d;font-weight:600;text-align:center;font-size:11px">${totalDays}</td>
     </tr>`;
   }
 
@@ -2627,7 +2628,7 @@ function openKickoffPDFModal() {
   document.getElementById('pdfProcurementTitle').style.display = 'none';
   document.getElementById('pdfProcurementContainer').innerHTML = '';
 
-  document.getElementById('pdfFooter').textContent = `COVVA — ${pName}  ·  ${todayStr}  ·  Kickoff  ·  Confidential`;
+  document.getElementById('pdfFooter').textContent = `COVVA — ${pName}  ·  ${todayStr}  ·  Work Schedule  ·  Confidential`;
   document.getElementById('pdfModal').classList.add('visible');
 }
 
@@ -2717,9 +2718,12 @@ function parseSheetDate(value) {
     }
   }
 
-  // Fallback — strip time to avoid tz issues
+  // Fallback — only for strings that actually carry a 4-digit year.
+  // Without this guard, junk like "1" in a date cell is read by the browser
+  // as 1 Jan 2001 (that's how "01 Jan 2001 · -9514 days" appeared).
+  if (!/\b(19|20)\d{2}\b/.test(str)) return null;
   const parsed = new Date(str);
-  if (isNaN(parsed)) return null;
+  if (isNaN(parsed) || parsed.getFullYear() < 2000 || parsed.getFullYear() > 2099) return null;
   return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
 }
 

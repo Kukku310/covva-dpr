@@ -973,8 +973,13 @@ function _parseDateInput(s) {
 }
 // True when the field has a value but it isn't a usable date yet
 // (e.g. year still being typed). Handlers should wait in that case.
+// Chrome reports value "" (not a partial value) while a segment is half-typed
+// — e.g. typing "0" before "5" in the day box. validity.badInput is the only
+// signal that distinguishes "mid-typing" from "deliberately cleared".
 function _isIncompleteDate(el) {
-  return !!(el && el.value && !_parseDateInput(el.value));
+  if (!el) return false;
+  if (el.validity && el.validity.badInput) return true;
+  return !!(el.value && !_parseDateInput(el.value));
 }
 function _formatDateInput(d) {
   if (!d) return '';
@@ -1012,7 +1017,8 @@ function _flashRow(tr) {
 }
 
 function _sortActivityBody(tbody) {
-  const rows = Array.from(tbody.querySelectorAll('tr'));
+  const before = Array.from(tbody.querySelectorAll('tr'));
+  const rows = before.slice();
   rows.sort((a, b) => {
     const sa = _parseDateInput((a.querySelector('.act-start') || {}).value);
     const sb = _parseDateInput((b.querySelector('.act-start') || {}).value);
@@ -1021,6 +1027,9 @@ function _sortActivityBody(tbody) {
     if (!sa && sb) return 1;
     return 0;
   });
+  // Only touch the DOM if the order actually changed — re-appending rows
+  // blurs the date field the user is typing in.
+  if (rows.every((r, i) => r === before[i])) return;
   rows.forEach(r => tbody.appendChild(r));
 }
 
@@ -1110,8 +1119,13 @@ async function _onActivityStartChange(tr, context) {
   const startEl = tr.querySelector('.act-start');
   const endEl = tr.querySelector('.act-end');
   const daysEl = tr.querySelector('.act-days');
-  if (_isIncompleteDate(startEl)) return; // year still being typed
+  if (_isIncompleteDate(startEl)) return; // still being typed
   const newStart = _parseDateInput(startEl.value);
+  if (!newStart) {
+    // Start cleared — a start date is mandatory, so restore it.
+    startEl.value = startEl.dataset.prev || '';
+    return;
+  }
   const days = parseInt(daysEl.value, 10);
   if (newStart && days >= 1) {
     // Preserve duration: shift End so Days stays the same
@@ -1132,7 +1146,7 @@ async function _onActivityStartChange(tr, context) {
 async function _onActivityEndChange(tr, context) {
   const endEl = tr.querySelector('.act-end');
   const startEl = tr.querySelector('.act-start');
-  if (_isIncompleteDate(endEl)) return; // year still being typed
+  if (_isIncompleteDate(endEl)) return; // still being typed
   const prev = endEl.dataset.prev || '';
   const newVal = endEl.value;
   const newEnd = _parseDateInput(newVal);
@@ -1153,6 +1167,21 @@ async function _onActivityEndChange(tr, context) {
   _recomputeProjectSummary(context);
   if (cascaded) await _autoSaveCascadedRows(tr.parentElement, tr, context);
   else await _autoSaveRow(tr, context);
+}
+
+// "×" next to Planned End: make the activity open-ended (no end, no days).
+async function clearPlannedEnd(btn) {
+  const tr = btn.closest('tr');
+  const endEl = tr.querySelector('.act-end');
+  const curEl = tr.querySelector('.act-current-end');
+  if (!endEl || (!endEl.value && !(curEl && curEl.value))) return;
+  endEl.value = '';
+  endEl.dataset.prev = '';
+  if (curEl) curEl.value = '';
+  tr.dataset.planMode = 'true';
+  _recalcRowDays(tr);
+  _recomputeProjectSummary('edit');
+  await _autoSaveRow(tr, 'edit');
 }
 
 async function _onActivityDaysChange(tr, context) {
@@ -1431,7 +1460,7 @@ function addActivityRow(context, data) {
       <td><input class="td-input" type="text" value="${esc(originalActivity)}" placeholder="Activity name"></td>
       <td><input class="td-input act-start" type="date" value="${toDateInput(d.planned_start||d['Planned Start']||'')}"></td>
       <td><input class="td-input td-days act-days" type="number" min="1" placeholder="—"></td>
-      <td><input class="td-input act-end" type="date" value="${initPlannedEnd}"></td>
+      <td><div style="display:flex;align-items:center;gap:2px"><input class="td-input act-end" type="date" value="${initPlannedEnd}"><button type="button" class="act-end-clear" onclick="clearPlannedEnd(this)" title="No end date (open-ended, e.g. third-party vendor work)" style="border:none;background:none;color:#9a9188;cursor:pointer;font-size:13px;padding:0 3px;line-height:1">×</button></div></td>
       <td><input class="td-input act-current-end" type="date" value="${initCurrentEnd}"></td>
       <td>${activityStatusSelect(d.status||d['Status']||'Not Started')}</td>
       <td><button class="override-chip${isOverrideOn(d.manual_override||d['Manual Override'])?' active':''}" onclick="toggleOverride(this)" title="Lock this row from automatic timeline updates">${isOverrideOn(d.manual_override||d['Manual Override'])?'OVERRIDDEN':'Override'}</button></td>
@@ -1716,6 +1745,9 @@ async function saveActivityRow(btn, context) {
     planned_start: inputs[1].value,
     planned_end: plannedEndVal,
     current_end: currentEndVal,
+    // Blank Planned End = open-ended activity. Tell the backend to store
+    // blanks instead of keeping the old dates.
+    planned_end_open: !plannedEndVal,
     status: inputs[5].value,
     manual_override: overrideChip ? overrideChip.classList.contains('active') : false
   };
@@ -2009,9 +2041,11 @@ function toDateInput(str) {
     if (dmyMatch) {
       return `${dmyMatch[3]}-${String(dmyMatch[2]).padStart(2,'0')}-${String(dmyMatch[1]).padStart(2,'0')}`;
     }
-    // Fallback: parse as local date
+    // Fallback: parse as local date — only if a real 4-digit year is present.
+    // Otherwise junk like "1" becomes 1 Jan 2001 in the browser.
+    if (!/\b(19|20)\d{2}\b/.test(s)) return '';
     const d = new Date(str);
-    if (!isNaN(d)) {
+    if (!isNaN(d) && d.getFullYear() >= 2000 && d.getFullYear() <= 2099) {
       return new Date(d.getFullYear(), d.getMonth(), d.getDate())
         .toISOString().substring(0, 10);
     }
