@@ -961,7 +961,7 @@ function _setCascadeSilent(context) {
 // date field, the browser fires "change" on every digit with a partial year
 // (0002 → 0020 → 0202 → 2026); those must be ignored, not acted on. Also,
 // new Date(20, …) silently means 1920, which is how "1920" dates appeared.
-const _MIN_YEAR = 2000, _MAX_YEAR = 2099;
+const _MIN_YEAR = 2020, _MAX_YEAR = 2099;
 function _parseDateInput(s) {
   if (!s) return null;
   const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -1174,7 +1174,9 @@ async function clearPlannedEnd(btn) {
   const tr = btn.closest('tr');
   const endEl = tr.querySelector('.act-end');
   const curEl = tr.querySelector('.act-current-end');
-  if (!endEl || (!endEl.value && !(curEl && curEl.value))) return;
+  if (!endEl) return;
+  // Always save, even if the field already looks blank — the sheet may still
+  // hold a bad date that the screen is hiding.
   endEl.value = '';
   endEl.dataset.prev = '';
   if (curEl) curEl.value = '';
@@ -2023,7 +2025,13 @@ function esc(str) {
   return String(str || '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+// Dates outside 2020–2099 are data-entry errors (e.g. "1 Jan 2001") → show blank.
 function toDateInput(str) {
+  const v = _toDateInputRaw(str);
+  const y = v ? +v.slice(0, 4) : 0;
+  return (y >= _MIN_YEAR && y <= _MAX_YEAR) ? v : '';
+}
+function _toDateInputRaw(str) {
   if (!str) return '';
   try {
     const s = String(str).trim();

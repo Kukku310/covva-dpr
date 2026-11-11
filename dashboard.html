@@ -1302,15 +1302,19 @@ function buildGantt(activities, dprs, today, startDate, endDate) {
     else if (status === 'delayed' && slipDays <= 7)                barColor = colorMap.on_track_delayed;
     else if (status === 'delayed' && slipDays > 7)                 barColor = colorMap.delayed_heavy;
 
-    if (act.planned_start && (act.current_end || act.planned_end)) {
+    // Use parsed dates so a bad cell (e.g. 2001) counts as "no end date"
+    if (!parseSheetDate(act.planned_end)) act = Object.assign({}, act, { planned_end: '' });
+    if (!parseSheetDate(act.current_end)) act = Object.assign({}, act, { current_end: '' });
+    if (parseSheetDate(act.planned_start) && (act.current_end || act.planned_end)) {
       const x1  = dayX(act.planned_start);
       const xPE = dayX(act.planned_end || act.current_end);
       const xCE = dayX(act.current_end || act.planned_end);
       const barH = ROW_H - 16;
       const barY = 8;
 
-      // Main bar (to planned_end)
-      if (xPE > x1) {
+      // Main bar (to planned_end). >= so 1-day activities (start == end)
+      // still get a visible bar instead of vanishing.
+      if (xPE >= x1) {
         ctx.fillStyle = barColor;
         ctx.beginPath();
         ctx.roundRect(x1, barY, Math.max(xPE - x1, 4), barH, 3);
@@ -1335,6 +1339,16 @@ function buildGantt(activities, dprs, today, startDate, endDate) {
         ctx.beginPath(); ctx.moveTo(xPE, 4); ctx.lineTo(xPE, ROW_H - 5); ctx.stroke();
         ctx.setLineDash([]);
       }
+    } else if (act.planned_start && parseSheetDate(act.planned_start)) {
+      // Open-ended activity (no end date, e.g. third-party vendor): short
+      // faded marker at the start date so the row isn't empty.
+      const x1 = dayX(act.planned_start);
+      ctx.fillStyle = barColor;
+      ctx.globalAlpha = 0.55;
+      ctx.beginPath();
+      ctx.roundRect(x1, 8, 14, ROW_H - 16, 3);
+      ctx.fill();
+      ctx.globalAlpha = 1;
     }
 
     // Today line (amber)
@@ -2652,7 +2666,17 @@ function fmtDate(value) {
   return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+// Any date outside 2020–2099 is a data-entry error on a COVVA project
+// (e.g. a stray "1 Jan 2001" end date). Treat it as blank so one bad cell
+// can't stretch the whole timeline to 9,000+ days.
 function parseSheetDate(value) {
+  const d = _parseSheetDateRaw(value);
+  if (!d || isNaN(d)) return null;
+  const y = d.getFullYear();
+  return (y < 2020 || y > 2099) ? null : d;
+}
+
+function _parseSheetDateRaw(value) {
   if (!value) return null;
 
   // Already a JS Date object
