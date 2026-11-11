@@ -2584,9 +2584,10 @@ function openKickoffPDFModal() {
   const PDF_HD  = `border-bottom:1px solid #e0dbd3;background:#f0ece6`;
   const PDF_COL3 = `<colgroup><col style="width:48%"><col style="width:26%"><col style="width:26%"></colgroup>`;
 
+  // Sort by the date actually shown (Target Date, else Required On Site)
   const allMats = [...(dashData.materials || [])].sort((a, b) => {
-    const da = parseSheetDate(a.target_date);
-    const db = parseSheetDate(b.target_date);
+    const da = parseSheetDate(a.target_date || a.required_on_site_date);
+    const db = parseSheetDate(b.target_date || b.required_on_site_date);
     if (!da && !db) return 0;
     if (!da) return 1;
     if (!db) return -1;
